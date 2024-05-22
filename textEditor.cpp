@@ -1,6 +1,3 @@
-// split into files
-// make freed pointers be null
-// clearing the console
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -29,8 +26,8 @@ int main() {
             printMenu();
         else if (isValidCommand(line, command))
             processCommand(command);
-        else printf("Invalid command! Please, enter a number from 1 to 9.\n");
-    } while (command != 9);
+        else printf("Invalid command! Please, enter a number from 1 to 8.\n");
+    } while (command != 8);
     return 0;
 }
 
@@ -38,13 +35,12 @@ void printMenu() {
     printf("Possible commands:\n"
            "1. Append text symbols to the end\n"
            "2. Start a new line\n"
-           "3. Use files for loading/saving the information\n"
-           "4. Print the current text to console\n"
+           "3. Use files for saving the information\n"
+           "4. Use files for loading the information\n"
+           "5. Print the current text to the console\n"
            "5. Insert the text by line and symbol index\n"
            "6. Search\n"
-           "7. Clear the console\n"
-           "8. Menu\n"
-           "9. Exit\n\n");
+           "8. Exit\n\n");
 }
 
 bool isInteger(char *line) {
@@ -60,7 +56,7 @@ bool isInteger(char *line) {
 bool isValidCommand(char *line, int &command) {
     if (isInteger(line)) {
         command = atoi(line);
-        if (command >= 1 && command <= 9) {
+        if (command >= 1 && command <= 8) {
             return true;
         }
     }
@@ -75,32 +71,32 @@ void clearInputBuffer() {
 void processCommand(int command) {
     switch (command) {
         case 1:
-            // Method to append text symbols to the end
+            printf("Method to append text symbols to the end\n");
             break;
         case 2:
-            // Method to start the new line
+            printf("Method to make a new line\n");
             break;
         case 3:
-            // Method to use files to loading the information
+            printf("Method to use files to saving the information\n");
             break;
         case 4:
-            // Method to use files to saving the information
+            printf("Method to use files to loading the information\n");
             break;
         case 5:
-            // Method to print the current text to console
+            printf("Method to print the current text to console\n");
             break;
         case 6:
-            // Method to insert the text by line and symbol index
+            printf("Method to insert the text by line and symbol index\n");
             break;
         case 7:
-            // Method to search
+            printf("Method to search\n");
             break;
         case 8:
             // exit
             printf("Okay, bye!\n");
             break;
         default:
-            printf("Unexpected command received. Please enter a number from 1 to 9.\n");
+            printf("Unexpected command received. Please enter a number from 1 to 8.\n");
             break;
     }
 }
