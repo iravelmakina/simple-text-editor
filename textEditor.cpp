@@ -8,6 +8,14 @@ bool isValidCommand(char *line, int &command);
 void clearInputBuffer();
 void processCommand(int command);
 
+typedef struct Line {
+    char *text;
+    int textSize;
+    struct Line *next;
+} Line;
+
+Line *head = NULL;
+
 int main() {
     char line[20];
     int command;
@@ -100,3 +108,5 @@ void processCommand(int command) {
             break;
     }
 }
+
+
