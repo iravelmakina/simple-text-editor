@@ -9,6 +9,7 @@
 void printMenu();
 bool isValidCommand(char *line, int &command);
 void clearInputBuffer();
+void processCommand(int command);
 
 int main() {
     char line[20];
@@ -27,8 +28,7 @@ int main() {
         if (strcmp(line, "m") == 0)
             printMenu();
         else if (isValidCommand(line, command))
-            printf("ok");
-             // processCommand();
+            processCommand(command);
         else printf("Invalid command! Please, enter a number from 1 to 9.\n");
     } while (command != 9);
     return 0;
@@ -61,7 +61,6 @@ bool isValidCommand(char *line, int &command) {
     if (isInteger(line)) {
         command = atoi(line);
         if (command >= 1 && command <= 9) {
-            printf("number");
             return true;
         }
     }
@@ -73,5 +72,35 @@ void clearInputBuffer() {
     while ((c = getchar()) != '\n' && c != EOF) { }
 }
 
-
-
+void processCommand(int command) {
+    switch (command) {
+        case 1:
+            // Method to append text symbols to the end
+            break;
+        case 2:
+            // Method to start the new line
+            break;
+        case 3:
+            // Method to use files to loading the information
+            break;
+        case 4:
+            // Method to use files to saving the information
+            break;
+        case 5:
+            // Method to print the current text to console
+            break;
+        case 6:
+            // Method to insert the text by line and symbol index
+            break;
+        case 7:
+            // Method to search
+            break;
+        case 8:
+            // exit
+            printf("Okay, bye!\n");
+            break;
+        default:
+            printf("Unexpected command received. Please enter a number from 1 to 9.\n");
+            break;
+    }
+}
