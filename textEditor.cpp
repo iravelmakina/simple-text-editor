@@ -42,6 +42,15 @@ lineNode* addLine(lineNode *line, int BUFFER_SIZE) {
     return newLine;
 }
 
+// add validation
+void printText() {
+    Line *curLine = head;
+    while (curLine != NULL) {
+        printf("%s\n", curLine->text);
+        curLine = curLine->next;
+    }
+}
+
 void printMenu() {
     printf("Possible commands:\n"
            "1. Append text symbols to the end\n"
@@ -94,6 +103,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             printf("Method to use files to loading the information\n");
             break;
         case 5:
+            printText();
             break;
         case 6:
             printf("Method to insert the text by line and symbol index\n");
