@@ -40,7 +40,7 @@ void appendText(lineNode *line, int BUFFER_SIZE) {
 
     if (line->textSize < inputLength + currentTextLength + 1) {
         line->textSize += BUFFER_SIZE;
-        char *temp = (char*)realloc(line->text, line->textSize); //free and null
+        char *temp = (char*)realloc(line->text, line->textSize);
         if (temp == NULL) {
             printf("Failed to allocate memory for line text.\n");
             return;
@@ -56,6 +56,55 @@ lineNode* addLine(lineNode *line, int BUFFER_SIZE) {
     line->next = newLine;
     printf("New line is started!\n");
     return newLine;
+}
+
+char* getFilename() { // add size validation
+    printf("Enter the file name (no more than 10 characters):\n");
+    char* name = (char*)malloc(11 * sizeof(char));
+    if (name == NULL) {
+        printf("Failed to allocate memory for file name.\n");
+        return NULL;
+    }
+    if (fgets(name, 11, stdin) == NULL) {
+        printf("Failed to read file name.\n");
+        free(name);
+        return NULL;
+    }
+
+    name[strcspn(name, "\n")] = '\0';
+    return name;
+}
+
+void writeToFile(char* name, lineNode* head) {
+    FILE* file;
+    file = fopen(name, "w");
+    if (file == NULL) {
+        printf("Failed to open file %s for writing.\n", name);
+        return;
+    }
+
+    Line *curLine = head;
+    while (curLine != NULL) {
+        if (fputs(curLine->text, file) == EOF) {
+            printf("Failed to write to file %s.\n", name);
+            fclose(file);
+            return;
+        }
+        fputs("\n", file);
+        curLine = curLine->next;
+    }
+
+    fclose(file);
+    printf("Successfully wrote to file %s.\n", name);
+}
+
+void saveToFile(lineNode* head) {
+    char* name = getFilename();
+    if (name == NULL)
+        return;
+
+    writeToFile(name, head);
+    free(name);
 }
 
 // add validation
@@ -125,7 +174,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             *currentLine = addLine(*currentLine, BUFFER_SIZE);
             break;
         case 3:
-            printf("Method to use files to saving the information\n");
+            saveToFile(head);
             break;
         case 4:
             printf("Method to use files to loading the information\n");
