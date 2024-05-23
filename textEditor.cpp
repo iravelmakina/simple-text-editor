@@ -3,11 +3,6 @@
 #include <cstring>
 #include <cctype>
 
-/*void printMenu();
-bool isValidCommand(char *line, int &command);
-void clearInputBuffer();
-void processCommand(int command);*/
-
 typedef struct lineNode {
     char *text;
     int textSize;
@@ -72,6 +67,18 @@ void printText() {
     }
 }
 
+void freeMemory(Line **head) {
+    Line *current;
+    while (*head != NULL) {
+        current = *head;
+        *head = (*head)->next;
+        free(current->text);
+        current->text = NULL;
+        free(current);
+        current = NULL;
+    }
+};
+
 void printMenu() {
     printf("Possible commands:\n"
            "1. Append text symbols to the end\n"
@@ -133,6 +140,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             printf("Method to search\n");
             break;
         case 8: // consider cases when finishing abruptly
+            freeMemory(&head);
             printf("Okay, bye!\n");
             break;
         default:
