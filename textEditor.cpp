@@ -34,6 +34,27 @@ lineNode *createLine(int BUFFER_SIZE) {
     return line;
 }
 
+void appendText(lineNode *line, int BUFFER_SIZE) {
+    printf("Please, enter some text you would like to append (no more than 99 characters): \n");
+    char input[BUFFER_SIZE];
+    fgets(input, sizeof(input), stdin);
+    input[strcspn(input, "\n")] = '\0';
+
+    int inputLength = strlen(input);
+    int currentTextLength = strlen(line->text);
+
+    if (line->textSize < inputLength + currentTextLength + 1) {
+        line->textSize += BUFFER_SIZE;
+        char *temp = (char*)realloc(line->text, line->textSize); //free and null
+        if (temp == NULL) {
+            printf("Failed to allocate memory for line text.\n");
+            return;
+        }
+        line->text = temp;
+    }
+    strcat(line->text, input);
+}
+
 lineNode* addLine(lineNode *line, int BUFFER_SIZE) {
     lineNode *newLine = createLine(BUFFER_SIZE);
     newLine->next = line->next;
@@ -91,7 +112,7 @@ void clearInputBuffer() {
 void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
     switch (command) {
         case 1:
-            printf("Method to append text symbols to the end\n");
+            appendText(*currentLine, BUFFER_SIZE);
             break;
         case 2:
             *currentLine = addLine(*currentLine, BUFFER_SIZE);
@@ -111,8 +132,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
         case 7:
             printf("Method to search\n");
             break;
-        case 8:
-            // exit
+        case 8: // consider cases when finishing abruptly
             printf("Okay, bye!\n");
             break;
         default:
