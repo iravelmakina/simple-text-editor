@@ -3,40 +3,43 @@
 #include <cstring>
 #include <cctype>
 
-void printMenu();
+/*void printMenu();
 bool isValidCommand(char *line, int &command);
 void clearInputBuffer();
-void processCommand(int command);
+void processCommand(int command);*/
 
-typedef struct Line {
+typedef struct lineNode {
     char *text;
     int textSize;
-    struct Line *next;
+    struct lineNode *next;
 } Line;
 
-Line *head = NULL;
+lineNode *head = NULL; // move to main??
 
-int main() {
-    char line[20];
-    int command;
-    printf("Welcome! Enter 'm' to see available commands.\n");
-    do {
-        printf("Please, choose your command: \n");
-        fgets(line, sizeof(line), stdin);
+lineNode *createLine(int BUFFER_SIZE) {
+    lineNode *line = (lineNode*)calloc(1, sizeof(lineNode));
+    if (line == NULL) {
+        printf("Failed. Unable to allocate memory for line.\n");
+        return NULL;
+    }
 
-        if (line[strlen(line) - 1] != '\n') {
-            clearInputBuffer();
-        } else {
-            line[strlen(line) - 1] = '\0';
-        }
+    line->text = (char*)calloc(BUFFER_SIZE, sizeof(char));
+    if (line->text == NULL) {
+        printf("Failed. Unable to allocate memory for line text.\n");
+        free(line);
+        return NULL;
+    }
+    line->textSize = BUFFER_SIZE;
+    line->next = NULL;
+    return line;
+}
 
-        if (strcmp(line, "m") == 0)
-            printMenu();
-        else if (isValidCommand(line, command))
-            processCommand(command);
-        else printf("Invalid command! Please, enter a number from 1 to 8.\n");
-    } while (command != 8);
-    return 0;
+lineNode* addLine(lineNode *line, int BUFFER_SIZE) {
+    lineNode *newLine = createLine(BUFFER_SIZE);
+    newLine->next = line->next;
+    line->next = newLine;
+    printf("New line is started!\n");
+    return newLine;
 }
 
 void printMenu() {
@@ -76,13 +79,13 @@ void clearInputBuffer() {
     while ((c = getchar()) != '\n' && c != EOF) { }
 }
 
-void processCommand(int command) {
+void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
     switch (command) {
         case 1:
             printf("Method to append text symbols to the end\n");
             break;
         case 2:
-            printf("Method to make a new line\n");
+            *currentLine = addLine(*currentLine, BUFFER_SIZE);
             break;
         case 3:
             printf("Method to use files to saving the information\n");
@@ -91,7 +94,6 @@ void processCommand(int command) {
             printf("Method to use files to loading the information\n");
             break;
         case 5:
-            printf("Method to print the current text to console\n");
             break;
         case 6:
             printf("Method to insert the text by line and symbol index\n");
@@ -109,4 +111,30 @@ void processCommand(int command) {
     }
 }
 
+int main() {
+    char commandLine[3];
+    int command;
+    const int BUFFER_SIZE = 100;
 
+    head = createLine(BUFFER_SIZE);
+    if (head == NULL)
+        return 1;
+
+    printf("Welcome! Enter 'm' to see available commands.\n");
+    Line *currentLine = head;
+    do {
+        printf("Please, choose your command: \n");
+        fgets(commandLine, sizeof(commandLine), stdin);
+
+        if (commandLine[strlen(commandLine) - 1] != '\n')
+            clearInputBuffer();
+        else commandLine[strlen(commandLine) - 1] = '\0';
+
+        if (strcmp(commandLine, "m") == 0)
+            printMenu();
+        else if (isValidCommand(commandLine, command))
+            processCommand(command, &currentLine, BUFFER_SIZE);
+        else printf("Invalid command! Please, enter a number from 1 to 8.\n");
+    } while (command != 8);
+    return 0;
+}
