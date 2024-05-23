@@ -29,7 +29,7 @@ lineNode *createLine(int BUFFER_SIZE) {
     return line;
 }
 
-void appendText(lineNode *line, int BUFFER_SIZE) {
+void appendText(lineNode *line, int BUFFER_SIZE) { // handle >99 chars
     printf("Please, enter some text you would like to append (no more than 99 characters): \n");
     char input[BUFFER_SIZE];
     fgets(input, sizeof(input), stdin);
@@ -80,6 +80,7 @@ void writeToFile(char* name, lineNode* head) {
     file = fopen(name, "w");
     if (file == NULL) {
         printf("Failed to open file %s for writing.\n", name);
+        free(name);
         return;
     }
 
@@ -104,6 +105,40 @@ void saveToFile(lineNode* head) {
         return;
 
     writeToFile(name, head);
+    free(name);
+}
+
+void loadFromFile(lineNode** head, int BUFFER_SIZE) {
+    char* name = getFilename();
+    if (name == NULL)
+        return;
+
+    FILE* file;
+    file = fopen(name, "r");
+    if (file == NULL) {
+        printf("Failed to open file %s for loading.\n", name);
+        free(name);
+        return;
+    }
+
+    char buffer[BUFFER_SIZE];
+    lineNode* curLine = *head;
+    while (fgets(buffer, BUFFER_SIZE, file)) {
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        lineNode *newLine = createLine(BUFFER_SIZE);
+        if (newLine == NULL) {
+            printf("Failed to allocate memory for new line.\n");
+            fclose(file);
+            free(name);
+            return;
+        }
+        strncpy(newLine->text, buffer, BUFFER_SIZE);
+        curLine->next = newLine;
+        curLine = newLine;
+    }
+    fclose(file);
+    printf("Successfully loaded from file %s.\n", name);
     free(name);
 }
 
@@ -177,7 +212,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             saveToFile(head);
             break;
         case 4:
-            printf("Method to use files to loading the information\n");
+            loadFromFile(currentLine, BUFFER_SIZE);
             break;
         case 5:
             printText();
