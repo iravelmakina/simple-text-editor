@@ -44,7 +44,7 @@ bool initializeCurrentLine(lineNode **curLine, int BUFFER_SIZE) {
         head = *curLine;
     }
     return true;
-} // check using in addline
+} // check using in addline and loadfromfile
 
 bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
     int currentTextLength = strlen(curLine->text);
@@ -118,8 +118,7 @@ char* getUserInput(const char* prompt, int maxSize) {
     }
 
     return input;
-} //
-// OK
+} // OK
 
 FILE* openFile(const char* prompt, const char* mode, char** filename) {
     *filename = getUserInput(prompt, 10);
@@ -144,7 +143,7 @@ void closeFile(FILE* file, char* filename) {
 
 void saveToFile(lineNode* head) {
     char* filename;
-    FILE* file = openFile("Enter the file name (no more than 10 characters):", "w", &filename);
+    FILE* file = openFile("Enter the file name (up to 10 characters):", "w", &filename);
     if (file == NULL)
         return;
 
@@ -163,7 +162,7 @@ void saveToFile(lineNode* head) {
 
 void loadFromFile(lineNode** head, int BUFFER_SIZE) {
     char* filename;
-    FILE* file = openFile("Enter the file name (no more than 10 characters):", "r", &filename);
+    FILE* file = openFile("Enter the file name (up to 10 characters):", "r", &filename);
     if (file == NULL)
         return;
 
@@ -182,15 +181,19 @@ void loadFromFile(lineNode** head, int BUFFER_SIZE) {
             free(filename);
             return;
         }
-        strncpy(newLine->text, buffer, BUFFER_SIZE);
+        strncpy(newLine->text, buffer, BUFFER_SIZE - 1);
+        newLine->text[BUFFER_SIZE - 1] = '\0';
         if (curLine == NULL) {
             *head = newLine;
+
         } else {
             curLine->next = newLine;
         }
         curLine = newLine;
     }
     closeFile(file, filename);
+
+
 } // fix
 
 void printText() {
@@ -212,7 +215,7 @@ void searchSubstring(lineNode *head) {
         return;
     }
 
-    char* substring = getUserInput("Enter the substring to search for (no more than 30 symbols):", 30);
+    char* substring = getUserInput("Enter the substring to search for (up to 30 symbols):", 30);
     if (substring == NULL)
         return;
 
@@ -233,7 +236,7 @@ void searchSubstring(lineNode *head) {
     if (!found)
         printf("Substring %s not found.\n", substring);
     free(substring);
-}
+} // refactor
 
 void freeMemory(lineNode **head) {
     lineNode *current;
@@ -245,6 +248,7 @@ void freeMemory(lineNode **head) {
         free(current);
         current = NULL;
     }
+    *head = NULL;
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -297,7 +301,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             saveToFile(head);
             break;
         case 4:
-            loadFromFile(currentLine, BUFFER_SIZE);
+            loadFromFile(&head, BUFFER_SIZE);
             break;
         case 5:
             printText();
