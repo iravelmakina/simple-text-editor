@@ -3,7 +3,9 @@
 #include <cstring>
 #include <cctype>
 
+struct lineNode;
 void clearInputBuffer();
+void freeMemory(lineNode **head);
 
 typedef struct lineNode {
     char *text;
@@ -118,71 +120,77 @@ char* getUserInput(const char* prompt, int maxSize) {
     return input;
 }
 
-void writeToFile(char* name, lineNode* head) {
-    FILE* file;
-    file = fopen(name, "w");
+FILE* openFile(const char* prompt, const char* mode, char** filename) {
+    *filename = getUserInput(prompt, 10);
+    if (*filename == NULL)
+        return NULL;
+
+    FILE* file = fopen(*filename, mode);
     if (file == NULL) {
-        printf("Failed to open file %s for writing.\n", name);
-        free(name);
-        return;
+        printf("Failed to open file %s.\n", *filename);
+        free(*filename);
+        *filename = NULL;
     }
+
+    return file;
+}
+
+void closeFile(FILE* file, char* filename) {
+    fclose(file);
+    printf("Operation on file %s completed successfully.\n", filename);
+    free(filename);
+}
+
+void saveToFile(lineNode* head) {
+    char* filename;
+    FILE* file = openFile("Enter the file name (no more than 10 characters):", "w", &filename);
+    if (file == NULL)
+        return;
 
     lineNode *curLine = head;
     while (curLine != NULL) {
         if (fputs(curLine->text, file) == EOF) {
-            printf("Failed to write to file %s.\n", name);
+            printf("Failed to write to file %s.\n", filename);
             fclose(file);
             return;
         }
         fputs("\n", file);
         curLine = curLine->next;
     }
+    closeFile(file, filename);
+} // OK
 
-    fclose(file);
-    printf("Successfully wrote to file %s.\n", name);
-}
-
-void saveToFile(lineNode* head) {
-    char* name = getUserInput("Enter the file name (no more than 10 characters):", 10);
-    if (name == NULL)
+void loadFromFile(lineNode** head, int BUFFER_SIZE) {
+    char* filename;
+    FILE* file = openFile("Enter the file name (no more than 10 characters):", "r", &filename);
+    if (file == NULL)
         return;
 
-    writeToFile(name, head);
-    free(name);
-}
-
-void loadFromFile(lineNode** head, int BUFFER_SIZE) { // refactor, read in etc.
-    char* name = getUserInput("Enter the file name (no more than 10 characters):", 10);
-    if (name == NULL)
-        return;
-
-    FILE* file;
-    file = fopen(name, "r");
-    if (file == NULL) {
-        printf("Failed to open file %s for loading.\n", name);
-        free(name);
-        return;
+    if (*head != NULL) {
+        freeMemory(head);
     }
 
     char buffer[BUFFER_SIZE];
-    lineNode* curLine = *head;
+    lineNode* curLine = NULL;
     while (fgets(buffer, BUFFER_SIZE, file)) {
         buffer[strcspn(buffer, "\n")] = '\0';
 
         lineNode *newLine = createLine(BUFFER_SIZE);
         if (newLine == NULL) {
             fclose(file);
-            free(name);
+            free(filename);
             return;
         }
         strncpy(newLine->text, buffer, BUFFER_SIZE);
-        curLine->next = newLine;
+        if (curLine == NULL) {
+            *head = newLine;
+        } else {
+            curLine->next = newLine;
+        }
         curLine = newLine;
     }
-    fclose(file);
-    printf("Successfully loaded from file %s.\n", name);
-    free(name);
-}
+    closeFile(file, filename);
+} // fix
 
 void printText() {
     if (head == NULL) {
