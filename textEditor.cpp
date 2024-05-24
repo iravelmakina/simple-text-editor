@@ -118,7 +118,8 @@ char* getUserInput(const char* prompt, int maxSize) {
     }
 
     return input;
-}
+} //
+// OK
 
 FILE* openFile(const char* prompt, const char* mode, char** filename) {
     *filename = getUserInput(prompt, 10);
@@ -133,7 +134,7 @@ FILE* openFile(const char* prompt, const char* mode, char** filename) {
     }
 
     return file;
-}
+} // OK
 
 void closeFile(FILE* file, char* filename) {
     fclose(file);
@@ -205,16 +206,24 @@ void printText() {
     }
 } // OK
 
-void searchSubstring(lineNode * head, const char* substring) {
+void searchSubstring(lineNode *head) {
+    if (head == NULL) {
+        printf("The text is empty. Please, enter something first.\n");
+        return;
+    }
+
+    char* substring = getUserInput("Enter the substring to search for (no more than 30 symbols):", 30);
+    if (substring == NULL)
+        return;
+
     lineNode *curLine = head;
     int lineNumber = 1;
     bool found = false;
-
     while (curLine != NULL) {
         char* foundPos = strstr(curLine->text, substring);
         while (foundPos) {
             int position = foundPos - curLine->text + 1;
-            printf("Found substring \"%s\" at line %d, position %d\n", substring, lineNumber, position);
+            printf("Found substring %s at line %d, position %d\n", substring, lineNumber, position);
             found = true;
             foundPos = strstr(foundPos + 1, substring);
         }
@@ -222,15 +231,8 @@ void searchSubstring(lineNode * head, const char* substring) {
         lineNumber++;
     }
     if (!found)
-        printf("Substring \"%s\" not found.\n", substring);
-}
-
-void handleSearch() { //add size validation
-    char substring[31];
-    printf("Enter the substring to search for (up to 30 symbols): \n");
-    fgets(substring, sizeof(substring), stdin);
-    substring[strcspn(substring, "\n")] = '\0';
-    searchSubstring(head, substring);
+        printf("Substring %s not found.\n", substring);
+    free(substring);
 }
 
 void freeMemory(lineNode **head) {
@@ -304,7 +306,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             printf("Method to insert the text by line and symbol index\n");
             break;
         case 7:
-            handleSearch();
+            searchSubstring(head);
             break;
         case 8: // consider cases when finishing abruptly
             freeMemory(&head);
