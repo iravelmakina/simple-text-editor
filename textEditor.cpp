@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cctype>
 
+void clearInputBuffer();
+
 typedef struct lineNode {
     char *text;
     int textSize;
@@ -28,7 +30,7 @@ lineNode *createLine(int BUFFER_SIZE) {
     line->textSize = BUFFER_SIZE;
     line->next = NULL;
     return line;
-}
+} // OK
 
 bool initializeCurrentLine(lineNode **curLine, int BUFFER_SIZE) {
     if (*curLine == NULL) {
@@ -40,7 +42,7 @@ bool initializeCurrentLine(lineNode **curLine, int BUFFER_SIZE) {
         head = *curLine;
     }
     return true;
-}
+} // check using in addline
 
 bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
     int currentTextLength = strlen(curLine->text);
@@ -54,7 +56,7 @@ bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
         curLine->text = temp;
     }
     return true;
-}
+} // OK
 
 void appendText(lineNode **curLine, int BUFFER_SIZE) {
     if (!initializeCurrentLine(curLine, BUFFER_SIZE))
@@ -75,7 +77,7 @@ void appendText(lineNode **curLine, int BUFFER_SIZE) {
         if (inputLength < BUFFER_SIZE - 1)
             break;
     }
-}
+} // OK
 
 lineNode* addLine(lineNode *curLine, int BUFFER_SIZE) {
     lineNode *newLine = createLine(BUFFER_SIZE);
@@ -88,23 +90,32 @@ lineNode* addLine(lineNode *curLine, int BUFFER_SIZE) {
     } else head = newLine;
     printf("New line is started.\n");
     return newLine;
-}
+} // OK
 
-char* getFilename() { // add size validation
-    printf("Enter the file name (no more than 10 characters):\n");
-    char* name = (char*)malloc(11 * sizeof(char));
-    if (name == NULL) {
-        printf("Failed to allocate memory for file name.\n");
-        return NULL;
-    }
-    if (fgets(name, 11, stdin) == NULL) {
-        printf("Failed to read file name.\n");
-        free(name);
+char* getUserInput(const char* prompt, int maxSize) {
+    printf("%s\n", prompt);
+    char* input = (char*)calloc(maxSize + 2, sizeof(char));
+    if (input == NULL) {
+        printf("Failed to allocate memory for input.\n");
         return NULL;
     }
 
-    name[strcspn(name, "\n")] = '\0';
-    return name;
+    if (fgets(input, maxSize + 2, stdin) == NULL) {
+        printf("Failed to read input.\n");
+        free(input);
+        return NULL;
+    }
+
+    if (input[strlen(input) - 1] != '\n') {
+        printf("Input exceeds %d characters. Try again.\n", maxSize);
+        clearInputBuffer();
+        free(input);
+        return NULL;
+    } else {
+        input[strcspn(input, "\n")] = '\0';
+    }
+
+    return input;
 }
 
 void writeToFile(char* name, lineNode* head) {
@@ -132,7 +143,7 @@ void writeToFile(char* name, lineNode* head) {
 }
 
 void saveToFile(lineNode* head) {
-    char* name = getFilename();
+    char* name = getUserInput("Enter the file name (no more than 10 characters):", 10);
     if (name == NULL)
         return;
 
@@ -141,7 +152,7 @@ void saveToFile(lineNode* head) {
 }
 
 void loadFromFile(lineNode** head, int BUFFER_SIZE) { // refactor, read in etc.
-    char* name = getFilename();
+    char* name = getUserInput("Enter the file name (no more than 10 characters):", 10);
     if (name == NULL)
         return;
 
