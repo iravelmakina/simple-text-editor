@@ -150,43 +150,32 @@ void printText() {
     }
 }
 
-void searchSubstring(const char* substring, char* name) {
-    FILE* file; // move to separate func
-    file = fopen(name, "r");
-    if (file == NULL) {
-        printf("Failed to open file %s for searching.\n", name);
-        return;
-    }
-    char line[256];
+void searchSubstring(Line* head, const char* substring) {
+    Line *curLine = head;
     int lineNumber = 1;
     bool found = false;
-    while (fgets(line, sizeof(line), file)) {
-        line[strcspn(line, "\n")] = '\0';
-        char* foundPos = strstr(line, substring);
+
+    while (curLine != NULL) {
+        char* foundPos = strstr(curLine->text, substring);
         while (foundPos) {
-            int position = foundPos - line + 1; // +1 to make position 1-indexed
+            int position = foundPos - curLine->text + 1; 
             printf("Found substring \"%s\" at line %d, position %d\n", substring, lineNumber, position);
             found = true;
             foundPos = strstr(foundPos + 1, substring);
         }
+        curLine = curLine->next;
         lineNumber++;
     }
-    fclose(file);
     if (!found)
-        printf("Substring \"%s\" not found in file %s.\n", substring, name);
+        printf("Substring \"%s\" not found.\n", substring);
 }
 
-void handleSearch() {
-    char* name = getFilename();
-    if (name == NULL)
-        return;
-
+void handleSearch() { //add size validation
     char substring[31];
     printf("Enter the substring to search for (up to 30 symbols): \n");
     fgets(substring, sizeof(substring), stdin);
     substring[strcspn(substring, "\n")] = '\0';
-    searchSubstring(substring, name);
-    free(name);
+    searchSubstring(head, substring);
 }
 
 void freeMemory(Line **head) {
