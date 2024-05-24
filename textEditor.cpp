@@ -7,9 +7,9 @@ typedef struct lineNode {
     char *text;
     int textSize;
     struct lineNode *next;
-} Line;
+} lineNode;
 
-lineNode *head = NULL; // move to main??
+lineNode *head = NULL; // global head pointer
 
 lineNode *createLine(int BUFFER_SIZE) {
     lineNode *line = (lineNode*)calloc(1, sizeof(lineNode));
@@ -24,37 +24,69 @@ lineNode *createLine(int BUFFER_SIZE) {
         free(line);
         return NULL;
     }
+    line->text[0] = '\0';
     line->textSize = BUFFER_SIZE;
     line->next = NULL;
     return line;
 }
 
-void appendText(lineNode *line, int BUFFER_SIZE) { // handle >99 chars
-    printf("Please, enter some text you would like to append (no more than 99 characters): \n");
-    char input[BUFFER_SIZE];
-    fgets(input, sizeof(input), stdin);
-    input[strcspn(input, "\n")] = '\0';
-
-    int inputLength = strlen(input);
-    int currentTextLength = strlen(line->text);
-
-    if (line->textSize < inputLength + currentTextLength + 1) {
-        line->textSize += BUFFER_SIZE;
-        char *temp = (char*)realloc(line->text, line->textSize);
-        if (temp == NULL) {
-            printf("Failed to allocate memory for line text.\n");
-            return;
+bool initializeCurrentLine(lineNode **curLine, int BUFFER_SIZE) {
+    if (*curLine == NULL) {
+        *curLine = createLine(BUFFER_SIZE);
+        if (*curLine == NULL) {
+            printf("Failed to allocate memory for new line.\n");
+            return false;
         }
-        line->text = temp;
+        head = *curLine;
     }
-    strcat(line->text, input);
+    return true;
 }
 
-lineNode* addLine(lineNode *line, int BUFFER_SIZE) {
+bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
+    int currentTextLength = strlen(curLine->text);
+    if (curLine->textSize < currentTextLength + additionalLength + 1) {
+        curLine->textSize += BUFFER_SIZE;
+        char *temp = (char*)realloc(curLine->text, curLine->textSize);
+        if (temp == NULL) {
+            printf("Failed to allocate memory for line text.\n");
+            return false;
+        }
+        curLine->text = temp;
+    }
+    return true;
+}
+
+void appendText(lineNode **curLine, int BUFFER_SIZE) {
+    if (!initializeCurrentLine(curLine, BUFFER_SIZE))
+        return;
+
+    printf("Please, enter some text you would like to append. \n");
+    char input[BUFFER_SIZE];
+
+    while (fgets(input, BUFFER_SIZE, stdin)) {
+        input[strcspn(input, "\n")] = '\0';
+        int inputLength = strlen(input);
+
+        if (!ensureCapacity(*curLine, inputLength, BUFFER_SIZE))
+            return;
+
+        strcat((*curLine)->text, input);
+
+        if (inputLength < BUFFER_SIZE - 1)
+            break;
+    }
+}
+
+lineNode* addLine(lineNode *curLine, int BUFFER_SIZE) {
     lineNode *newLine = createLine(BUFFER_SIZE);
-    newLine->next = line->next;
-    line->next = newLine;
-    printf("New line is started!\n");
+    if (newLine == NULL)
+        return NULL;
+
+    if (curLine != NULL) {
+        newLine->next = curLine->next;
+        curLine->next = newLine;
+    } else head = newLine;
+    printf("New line is started.\n");
     return newLine;
 }
 
@@ -84,7 +116,7 @@ void writeToFile(char* name, lineNode* head) {
         return;
     }
 
-    Line *curLine = head;
+    lineNode *curLine = head;
     while (curLine != NULL) {
         if (fputs(curLine->text, file) == EOF) {
             printf("Failed to write to file %s.\n", name);
@@ -141,24 +173,28 @@ void loadFromFile(lineNode** head, int BUFFER_SIZE) { // refactor, read in etc.
     free(name);
 }
 
-// add validation
 void printText() {
-    Line *curLine = head;
+    if (head == NULL) {
+        printf("The text is empty yet. Please, enter something first.\n");
+        return;
+    }
+
+    lineNode *curLine = head;
     while (curLine != NULL) {
         printf("%s\n", curLine->text);
         curLine = curLine->next;
     }
-}
+} // OK
 
-void searchSubstring(Line* head, const char* substring) {
-    Line *curLine = head;
+void searchSubstring(lineNode * head, const char* substring) {
+    lineNode *curLine = head;
     int lineNumber = 1;
     bool found = false;
 
     while (curLine != NULL) {
         char* foundPos = strstr(curLine->text, substring);
         while (foundPos) {
-            int position = foundPos - curLine->text + 1; 
+            int position = foundPos - curLine->text + 1;
             printf("Found substring \"%s\" at line %d, position %d\n", substring, lineNumber, position);
             found = true;
             foundPos = strstr(foundPos + 1, substring);
@@ -178,8 +214,8 @@ void handleSearch() { //add size validation
     searchSubstring(head, substring);
 }
 
-void freeMemory(Line **head) {
-    Line *current;
+void freeMemory(lineNode **head) {
+    lineNode *current;
     while (*head != NULL) {
         current = *head;
         *head = (*head)->next;
@@ -190,6 +226,7 @@ void freeMemory(Line **head) {
     }
 };
 
+//------------------------------------------------------------------------------------------------------------------------------------------
 void printMenu() {
     printf("Possible commands:\n"
            "1. Append text symbols to the end\n"
@@ -230,7 +267,7 @@ void clearInputBuffer() {
 void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
     switch (command) {
         case 1:
-            appendText(*currentLine, BUFFER_SIZE);
+            appendText(currentLine, BUFFER_SIZE);
             break;
         case 2:
             *currentLine = addLine(*currentLine, BUFFER_SIZE);
@@ -265,12 +302,9 @@ int main() {
     int command;
     const int BUFFER_SIZE = 100;
 
-    head = createLine(BUFFER_SIZE);
-    if (head == NULL)
-        return 1;
+    lineNode *currentLine = NULL;
 
     printf("Welcome! Enter 'm' to see available commands.\n");
-    Line *currentLine = head;
     do {
         printf("Please, choose your command: \n");
         fgets(commandLine, sizeof(commandLine), stdin);
