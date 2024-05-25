@@ -173,6 +173,11 @@ void saveToFile(lineNode* head) {
         return;
 
     lineNode *curLine = head;
+    if (curLine == NULL) {
+        printf("The text is empty yet. Please, enter something first.\n");
+        return;
+    }
+
     while (curLine != NULL) {
         if (fputs(curLine->text, file) == EOF) {
             printf("Failed to write to file %s.\n", filename);
@@ -332,7 +337,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             printText();
             break;
         case 6:
-            printf("Method to insert the text by line and symbol index\n");
+            insertSubstring(head, BUFFER_SIZE);
             break;
         case 7:
             searchSubstring(head);
