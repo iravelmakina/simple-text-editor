@@ -6,6 +6,7 @@
 struct lineNode;
 void clearInputBuffer();
 void freeMemory(lineNode **head);
+bool isInteger(char *line);
 
 typedef struct lineNode {
     char *text;
@@ -94,34 +95,58 @@ lineNode* addLine(lineNode *curLine, int BUFFER_SIZE) {
     return newLine;
 } // OK
 
-char* getUserInput(const char* prompt, int maxSize) {
-    printf("%s\n", prompt);
-    char* input = (char*)calloc(maxSize + 2, sizeof(char));
-    if (input == NULL) {
-        printf("Failed to allocate memory for input.\n");
-        return NULL;
-    }
+char* getUserInputString(const char* prompt, int maxSize) {
+    char* input = NULL;
+    while (true) {
+        printf("%s\n", prompt);
+        input = (char*)calloc(maxSize + 2, sizeof(char));
+        if (input == NULL) {
+            printf("Failed to allocate memory for input.\n");
+            return NULL;
+        }
 
-    if (fgets(input, maxSize + 2, stdin) == NULL) {
-        printf("Failed to read input.\n");
-        free(input);
-        return NULL;
-    }
+        if (fgets(input, maxSize + 2, stdin) == NULL) {
+            printf("Failed to read input.\n");
+            free(input);
+            return NULL;
+        }
 
-    if (input[strlen(input) - 1] != '\n') {
-        printf("Input exceeds %d characters. Try again.\n", maxSize);
-        clearInputBuffer();
-        free(input);
-        return NULL;
-    } else {
-        input[strcspn(input, "\n")] = '\0';
+        if (input[strlen(input) - 1] != '\n') {
+            printf("Input exceeds %d characters. Try again.\n", maxSize);
+            clearInputBuffer();
+            free(input);
+        } else {
+            input[strcspn(input, "\n")] = '\0';
+            break;
+        }
     }
-
     return input;
 } // OK
 
+int getUserInputInt(const char* prompt) {
+    char buffer[10];
+    int value;
+    while (true) {
+        printf("%s\n", prompt);
+        if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+            if (buffer[strlen(buffer) - 1] != '\n') {
+                clearInputBuffer();
+            } else {
+                buffer[strlen(buffer) - 1] = '\0';
+            }
+            if (isInteger(buffer)) {
+                value = atoi(buffer);
+                break;
+            } else {
+                printf("Invalid input. Please enter a valid integer.\n");
+            }
+        }
+    }
+    return value;
+}
+
 FILE* openFile(const char* prompt, const char* mode, char** filename) {
-    *filename = getUserInput(prompt, 10);
+    *filename = getUserInputString(prompt, 10);
     if (*filename == NULL)
         return NULL;
 
@@ -215,7 +240,7 @@ void searchSubstring(lineNode *head) {
         return;
     }
 
-    char* substring = getUserInput("Enter the substring to search for (up to 30 symbols):", 30);
+    char* substring = getUserInputString("Enter the substring to search for (up to 30 symbols):", 30);
     if (substring == NULL)
         return;
 
@@ -236,7 +261,7 @@ void searchSubstring(lineNode *head) {
     if (!found)
         printf("Substring %s not found.\n", substring);
     free(substring);
-} // refactor
+}
 
 void freeMemory(lineNode **head) {
     lineNode *current;
