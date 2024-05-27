@@ -3,19 +3,48 @@
 #include <cstring>
 #include <cctype>
 
-struct lineNode;
-void clearInputBuffer();
-void freeMemory(lineNode **localHead);
-bool isInteger(char *line);
-
+// struct to represent nodes of linked list to store lines with text in arrays
 typedef struct lineNode {
     char *text;
     int textSize;
     struct lineNode *next;
 } lineNode;
 
-lineNode *head = NULL; // global head pointer
+// global head pointer
+lineNode *head = NULL;
 
+// func to clear buffer if input exceeds chars number allowed (overflow)
+void clearInputBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) { }
+}
+
+// func to check whether string is a valid integer
+bool isInteger(char *line) {
+    while (*line) {
+        if (!isdigit(*line)) {
+            return false;
+        }
+        line++;
+    }
+    return true;
+}
+
+// func to free memory allocated for linked list with text after executing program or while loading new text from file
+void freeMemory(lineNode **localHead) {
+    lineNode *current;
+    while (*localHead != NULL) {
+        current = *localHead;
+        *localHead = (*localHead)->next;
+        free(current->text);
+        current->text = NULL;
+        free(current);
+        current = NULL;
+    }
+    *localHead = NULL;
+};
+
+// func to create a new lineNode and allocate memory for text
 lineNode *createLine(int BUFFER_SIZE) {
     lineNode *line = (lineNode*)calloc(1, sizeof(lineNode));
     if (line == NULL) {
@@ -33,20 +62,24 @@ lineNode *createLine(int BUFFER_SIZE) {
     line->textSize = BUFFER_SIZE;
     line->next = NULL;
     return line;
-} // OK
+}
 
-bool initializeCurrentLine(lineNode **curLine, int BUFFER_SIZE) {
-    if (*curLine == NULL) {
-        *curLine = createLine(BUFFER_SIZE);
-        if (*curLine == NULL) {
+// func to initialize current line if it is NULL, create and set head if needed
+lineNode *initializeCurrentLine(lineNode *curLine, int BUFFER_SIZE) {
+    if (curLine == NULL) {
+        curLine = createLine(BUFFER_SIZE);
+        if (curLine == NULL) {
             printf("Failed to allocate memory for new line.\n");
-            return false;
+            return NULL;
         }
-        head = *curLine;
+        if (head == NULL) {
+            head = curLine;
+        }
     }
-    return true;
-} // check using in addline and loadfromfile
+    return curLine;
+}
 
+// func to ensure current line has enough capacity to append new text
 bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
     int currentTextLength = strlen(curLine->text);
     if (curLine->textSize < currentTextLength + additionalLength + 1) {
@@ -59,10 +92,12 @@ bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
         curLine->text = temp;
     }
     return true;
-} // OK
+}
 
-void appendText(lineNode **curLine, int BUFFER_SIZE) { //enter?
-    if (!initializeCurrentLine(curLine, BUFFER_SIZE))
+// func to append text to current line, ensuring enough capacity
+void appendText(lineNode **curLine, int BUFFER_SIZE) {
+    *curLine = initializeCurrentLine(*curLine, BUFFER_SIZE);
+    if (*curLine == NULL)
         return;
 
     printf("Please, enter some text you would like to append. \n");
@@ -87,21 +122,25 @@ void appendText(lineNode **curLine, int BUFFER_SIZE) { //enter?
             break;
         }
     }
-} // OK
+}
 
+// func to add a new line
 lineNode* addLine(lineNode *curLine, int BUFFER_SIZE) {
+    curLine = initializeCurrentLine(curLine, BUFFER_SIZE);
+    if (curLine == NULL)
+        return NULL;
+
     lineNode *newLine = createLine(BUFFER_SIZE);
     if (newLine == NULL)
         return NULL;
 
-    if (curLine != NULL) {
-        newLine->next = curLine->next;
-        curLine->next = newLine;
-    } else head = newLine;
+    newLine->next = curLine->next;
+    curLine->next = newLine;
     printf("New line is started.\n");
     return newLine;
-} // OK
+}
 
+// func to get a valid string with restricted allowed size from user
 char* getUserInputString(const char* prompt, int maxSize) {
     char* input = NULL;
     while (true) {
@@ -131,8 +170,9 @@ char* getUserInputString(const char* prompt, int maxSize) {
         }
     }
     return input;
-} // OK
+}
 
+// func to get a valid integer input from user
 int getUserInputInt(const char* prompt) {
     char buffer[10];
     int value;
@@ -157,6 +197,7 @@ int getUserInputInt(const char* prompt) {
     return value;
 }
 
+// func to open file with certain mode and return file pointer
 FILE* openFile(const char* prompt, const char* mode, char** filename) {
     *filename = getUserInputString(prompt, 20);
     if (*filename == NULL)
@@ -170,17 +211,19 @@ FILE* openFile(const char* prompt, const char* mode, char** filename) {
     }
 
     return file;
-} // OK
+}
 
+// func to close the file and free the filename
 void closeFile(FILE* file, char* filename) {
     fclose(file);
     printf("Operation on file %s completed successfully.\n", filename);
     free(filename);
 }
 
+// func to save linked list text to file
 void saveToFile() {
     char* filename;
-    FILE* file = openFile("Enter the file name (up to 10 characters):", "w", &filename);
+    FILE* file = openFile("Enter the file name (up to 20 characters):", "w", &filename);
     if (file == NULL)
         return;
 
@@ -200,11 +243,12 @@ void saveToFile() {
         curLine = curLine->next;
     }
     closeFile(file, filename);
-} // OK
+}
 
-void loadFromFile(lineNode** localHead, lineNode **currentLine, int BUFFER_SIZE) { // some problem when appending after first file loading
+// func to load text from file to linked list
+void loadFromFile(lineNode** localHead, lineNode **currentLine, int BUFFER_SIZE) {
     char* filename;
-    FILE* file = openFile("Enter the file name (up to 10 characters):", "r", &filename);
+    FILE* file = openFile("Enter the file name (up to 20 characters):", "r", &filename);
     if (file == NULL)
         return;
 
@@ -235,10 +279,9 @@ void loadFromFile(lineNode** localHead, lineNode **currentLine, int BUFFER_SIZE)
     }
     *currentLine = curLine;
     closeFile(file, filename);
+}
 
-
-} // fix
-
+// func to print all the text saved in linked list
 void printText() {
     if (head == NULL) {
         printf("The text is empty yet. Please, enter something first.\n");
@@ -250,37 +293,9 @@ void printText() {
         printf("%s\n", curLine->text);
         curLine = curLine->next;
     }
-} // OK
-
-void searchSubstring(lineNode *localHead) {
-    if (localHead == NULL) {
-        printf("The text is empty. Please, enter something first.\n");
-        return;
-    }
-
-    char* substring = getUserInputString("Enter the substring to search for (up to 30 symbols):", 30);
-    if (substring == NULL)
-        return;
-
-    lineNode *curLine = localHead;
-    int lineNumber = 1;
-    bool found = false;
-    while (curLine != NULL) {
-        char* foundPos = strstr(curLine->text, substring);
-        while (foundPos) {
-            int position = foundPos - curLine->text + 1;
-            printf("Found substring %s at line %d, position %d\n", substring, lineNumber, position);
-            found = true;
-            foundPos = strstr(foundPos + 1, substring);
-        }
-        curLine = curLine->next;
-        lineNumber++;
-    }
-    if (!found)
-        printf("Substring %s not found.\n", substring);
-    free(substring);
 }
 
+// func to insert certain substring to linked list using line index and position in line
 void insertSubstring(lineNode *localHead, int BUFFER_SIZE) {
     if (localHead == NULL) {
         printf("The text is empty. Please, enter something first.\n");
@@ -329,20 +344,36 @@ void insertSubstring(lineNode *localHead, int BUFFER_SIZE) {
     free(substring);
 }
 
-void freeMemory(lineNode **localHead) {
-    lineNode *current;
-    while (*localHead != NULL) {
-        current = *localHead;
-        *localHead = (*localHead)->next;
-        free(current->text);
-        current->text = NULL;
-        free(current);
-        current = NULL;
+// func to search certain substring in the linked list
+void searchSubstring(lineNode *localHead) {
+    if (localHead == NULL) {
+        printf("The text is empty. Please, enter something first.\n");
+        return;
     }
-    *localHead = NULL;
-};
 
-//------------------------------------------------------------------------------------------------------------------------------------------
+    char* substring = getUserInputString("Enter the substring to search for (up to 30 symbols):", 30);
+    if (substring == NULL)
+        return;
+
+    lineNode *curLine = localHead;
+    int lineNumber = 1;
+    bool found = false;
+    while (curLine != NULL) {
+        char* foundPos = strstr(curLine->text, substring);
+        while (foundPos) {
+            int position = foundPos - curLine->text + 1;
+            printf("Found substring %s at line %d, position %d\n", substring, lineNumber, position);
+            found = true;
+            foundPos = strstr(foundPos + 1, substring);
+        }
+        curLine = curLine->next;
+        lineNumber++;
+    }
+    if (!found)
+        printf("Substring %s not found.\n", substring);
+    free(substring);
+}
+
 void printMenu() {
     printf("Possible commands:\n"
            "1. Append text symbols to the end\n"
@@ -355,16 +386,7 @@ void printMenu() {
            "8. Exit\n\n");
 }
 
-bool isInteger(char *line) {
-    while (*line) {
-        if (!isdigit(*line)) {
-            return false;
-        }
-        line++;
-    }
-    return true;
-}
-
+// func to check whether user input is a valid integer associated with command
 bool isValidCommand(char *line, int &command) {
     if (isInteger(line)) {
         command = atoi(line);
@@ -373,11 +395,6 @@ bool isValidCommand(char *line, int &command) {
         }
     }
     return false;
-}
-
-void clearInputBuffer() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF) { }
 }
 
 void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
@@ -403,7 +420,7 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
         case 7:
             searchSubstring(head);
             break;
-        case 8: // consider cases when finishing abruptly
+        case 8:
             freeMemory(&head);
             printf("Okay, bye!\n");
             break;
