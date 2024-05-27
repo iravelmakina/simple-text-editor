@@ -5,7 +5,7 @@
 
 struct lineNode;
 void clearInputBuffer();
-void freeMemory(lineNode **head);
+void freeMemory(lineNode **localHead);
 bool isInteger(char *line);
 
 typedef struct lineNode {
@@ -61,7 +61,7 @@ bool ensureCapacity(lineNode *curLine, int additionalLength, int BUFFER_SIZE) {
     return true;
 } // OK
 
-void appendText(lineNode **curLine, int BUFFER_SIZE) {
+void appendText(lineNode **curLine, int BUFFER_SIZE) { //enter?
     if (!initializeCurrentLine(curLine, BUFFER_SIZE))
         return;
 
@@ -72,13 +72,20 @@ void appendText(lineNode **curLine, int BUFFER_SIZE) {
         input[strcspn(input, "\n")] = '\0';
         int inputLength = strlen(input);
 
+        if (inputLength == 0) {
+            printf("Invalid input. Please enter a non-empty string: \n");
+            continue;
+        }
+
         if (!ensureCapacity(*curLine, inputLength, BUFFER_SIZE))
             return;
 
         strcat((*curLine)->text, input);
 
-        if (inputLength < BUFFER_SIZE - 1)
+        if (inputLength < BUFFER_SIZE - 1) {
+            printf("Text was appended successfully.\n");
             break;
+        }
     }
 } // OK
 
@@ -117,7 +124,10 @@ char* getUserInputString(const char* prompt, int maxSize) {
             free(input);
         } else {
             input[strcspn(input, "\n")] = '\0';
-            break;
+            if (strlen(input) == 0) {
+                printf("Invalid input. Please enter a non-empty string.\n");
+                free(input);
+            } else break;
         }
     }
     return input;
@@ -134,7 +144,9 @@ int getUserInputInt(const char* prompt) {
             } else {
                 buffer[strlen(buffer) - 1] = '\0';
             }
-            if (isInteger(buffer)) {
+            if (strlen(buffer) == 0)
+                printf("Invalid input. Please enter a non-empty integer.\n");
+            else if (isInteger(buffer)) {
                 value = atoi(buffer);
                 break;
             } else {
@@ -146,13 +158,13 @@ int getUserInputInt(const char* prompt) {
 }
 
 FILE* openFile(const char* prompt, const char* mode, char** filename) {
-    *filename = getUserInputString(prompt, 10);
+    *filename = getUserInputString(prompt, 20);
     if (*filename == NULL)
         return NULL;
 
     FILE* file = fopen(*filename, mode);
     if (file == NULL) {
-        printf("Failed to open file %s.\n", *filename);
+        printf("Failed to open file %s. Please, make sure it exists.\n", *filename);
         free(*filename);
         *filename = NULL;
     }
@@ -166,7 +178,7 @@ void closeFile(FILE* file, char* filename) {
     free(filename);
 }
 
-void saveToFile(lineNode* head) {
+void saveToFile() {
     char* filename;
     FILE* file = openFile("Enter the file name (up to 10 characters):", "w", &filename);
     if (file == NULL)
@@ -190,14 +202,14 @@ void saveToFile(lineNode* head) {
     closeFile(file, filename);
 } // OK
 
-void loadFromFile(lineNode** head, int BUFFER_SIZE) {
+void loadFromFile(lineNode** localHead, lineNode **currentLine, int BUFFER_SIZE) { // some problem when appending after first file loading
     char* filename;
     FILE* file = openFile("Enter the file name (up to 10 characters):", "r", &filename);
     if (file == NULL)
         return;
 
-    if (*head != NULL) {
-        freeMemory(head);
+    if (*localHead != NULL) {
+        freeMemory(localHead);
     }
 
     char buffer[BUFFER_SIZE];
@@ -214,13 +226,14 @@ void loadFromFile(lineNode** head, int BUFFER_SIZE) {
         strncpy(newLine->text, buffer, BUFFER_SIZE - 1);
         newLine->text[BUFFER_SIZE - 1] = '\0';
         if (curLine == NULL) {
-            *head = newLine;
+            *localHead = newLine;
 
         } else {
             curLine->next = newLine;
         }
         curLine = newLine;
     }
+    *currentLine = curLine;
     closeFile(file, filename);
 
 
@@ -239,8 +252,8 @@ void printText() {
     }
 } // OK
 
-void searchSubstring(lineNode *head) {
-    if (head == NULL) {
+void searchSubstring(lineNode *localHead) {
+    if (localHead == NULL) {
         printf("The text is empty. Please, enter something first.\n");
         return;
     }
@@ -249,7 +262,7 @@ void searchSubstring(lineNode *head) {
     if (substring == NULL)
         return;
 
-    lineNode *curLine = head;
+    lineNode *curLine = localHead;
     int lineNumber = 1;
     bool found = false;
     while (curLine != NULL) {
@@ -268,17 +281,65 @@ void searchSubstring(lineNode *head) {
     free(substring);
 }
 
-void freeMemory(lineNode **head) {
+void insertSubstring(lineNode *localHead, int BUFFER_SIZE) {
+    if (localHead == NULL) {
+        printf("The text is empty. Please, enter something first.\n");
+        return;
+    }
+
+    int lineIndex = getUserInputInt("Enter the line index: ") - 1;
+    int charIndex = getUserInputInt("Enter the character index: ") - 1;
+    char* substring = getUserInputString("Enter the substring to insert (up to 30 symbols):", 30);
+
+    if (substring == NULL)
+        return;
+
+    lineNode *curLine = localHead;
+    int currentLine = 0;
+
+    while (curLine != NULL && currentLine < lineIndex) {
+        curLine = curLine->next;
+        currentLine++;
+    }
+
+    if (curLine == NULL) {
+        printf("Line index out of bounds. \n");
+        free(substring);
+        return;
+    }
+
+    int substringLength = strlen(substring);
+    int currentTextLength = strlen(curLine->text);
+
+    if (charIndex > currentTextLength) {
+        printf("Character index out of bounds. \n");
+        free(substring);
+        return;
+    }
+
+    if (!ensureCapacity(curLine, substringLength, BUFFER_SIZE)) {
+        free(substring);
+        return;
+    }
+
+    memmove(curLine->text + charIndex + substringLength, curLine->text + charIndex, currentTextLength - charIndex + 1);
+    memcpy(curLine->text + charIndex, substring, substringLength);
+
+    printf("Substring %s was inserted successfully.\n", substring);
+    free(substring);
+}
+
+void freeMemory(lineNode **localHead) {
     lineNode *current;
-    while (*head != NULL) {
-        current = *head;
-        *head = (*head)->next;
+    while (*localHead != NULL) {
+        current = *localHead;
+        *localHead = (*localHead)->next;
         free(current->text);
         current->text = NULL;
         free(current);
         current = NULL;
     }
-    *head = NULL;
+    *localHead = NULL;
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -289,8 +350,8 @@ void printMenu() {
            "3. Use files for saving the information\n"
            "4. Use files for loading the information\n"
            "5. Print the current text to the console\n"
-           "5. Insert the text by line and symbol index\n"
-           "6. Search\n"
+           "6. Insert the text by line and symbol index\n"
+           "7. Search\n"
            "8. Exit\n\n");
 }
 
@@ -328,10 +389,10 @@ void processCommand(int command, lineNode **currentLine, int BUFFER_SIZE) {
             *currentLine = addLine(*currentLine, BUFFER_SIZE);
             break;
         case 3:
-            saveToFile(head);
+            saveToFile();
             break;
         case 4:
-            loadFromFile(&head, BUFFER_SIZE);
+            loadFromFile(&head, currentLine, BUFFER_SIZE);
             break;
         case 5:
             printText();
