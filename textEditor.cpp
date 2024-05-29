@@ -42,7 +42,7 @@ void freeMemory(lineNode **localHead) {
         current = NULL;
     }
     *localHead = NULL;
-};
+}
 
 // func to create a new lineNode and allocate memory for text
 lineNode *createLine(int BUFFER_SIZE) {
@@ -218,6 +218,7 @@ void closeFile(FILE* file, char* filename) {
     fclose(file);
     printf("Operation on file %s completed successfully.\n", filename);
     free(filename);
+    filename = NULL;
 }
 
 // func to save linked list text to file
@@ -254,6 +255,7 @@ void loadFromFile(lineNode** localHead, lineNode **currentLine, int BUFFER_SIZE)
 
     if (*localHead != NULL) {
         freeMemory(localHead);
+        localHead = NULL;
     }
 
     char buffer[BUFFER_SIZE];
@@ -265,6 +267,7 @@ void loadFromFile(lineNode** localHead, lineNode **currentLine, int BUFFER_SIZE)
         if (newLine == NULL) {
             fclose(file);
             free(filename);
+            filename = NULL;
             return;
         }
         strncpy(newLine->text, buffer, BUFFER_SIZE - 1);
@@ -320,6 +323,7 @@ void insertSubstring(lineNode *localHead, int BUFFER_SIZE) {
     if (curLine == NULL) {
         printf("Line index out of bounds. \n");
         free(substring);
+        substring = NULL;
         return;
     }
 
@@ -329,11 +333,13 @@ void insertSubstring(lineNode *localHead, int BUFFER_SIZE) {
     if (charIndex > currentTextLength) {
         printf("Character index out of bounds. \n");
         free(substring);
+        substring = NULL;
         return;
     }
 
     if (!ensureCapacity(curLine, substringLength, BUFFER_SIZE)) {
         free(substring);
+        substring = NULL;
         return;
     }
 
@@ -342,6 +348,7 @@ void insertSubstring(lineNode *localHead, int BUFFER_SIZE) {
 
     printf("Substring %s was inserted successfully.\n", substring);
     free(substring);
+    substring = NULL;
 }
 
 // func to search certain substring in the linked list
@@ -362,7 +369,7 @@ void searchSubstring(lineNode *localHead) {
         char* foundPos = strstr(curLine->text, substring);
         while (foundPos) {
             int position = foundPos - curLine->text + 1;
-            printf("Found substring %s at line %d, position %d\n", substring, lineNumber, position);
+            printf("Found substring '%s' at line %d, position %d\n", substring, lineNumber, position);
             found = true;
             foundPos = strstr(foundPos + 1, substring);
         }
@@ -372,6 +379,7 @@ void searchSubstring(lineNode *localHead) {
     if (!found)
         printf("Substring %s not found.\n", substring);
     free(substring);
+    substring = NULL;
 }
 
 void printMenu() {
