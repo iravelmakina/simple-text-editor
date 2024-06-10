@@ -205,6 +205,32 @@ public:
                   << charIndex + 1 << "." << std::endl;
     }
 
+    void replaceSubstring() {
+        LineNode *curLine = nullptr;
+        int lineIndex = 0;
+        int charIndex = 0;
+        int curTextLen = 0;
+
+        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+
+        char substring[31];
+        getUserInputString("Enter the substring to insert (up to 30 symbols):", substring, 31);
+
+        int substringLen = strlen(substring);
+
+        if ((curTextLen - charIndex < substringLen) &&
+            !ensureCapacity(curLine, substringLen - (curTextLen - charIndex)))
+            return;
+
+        int newLength = charIndex + substringLen;
+        if (newLength >= curTextLen)
+            curLine->text[newLength] = '\0';
+
+        memcpy(curLine->text + charIndex, substring, substringLen);
+        std::cout << "Substring \"" << substring << "\" was inserted with replacement successfully into line "
+                  << lineIndex + 1 << " starting at position " << charIndex + 1 << "." << std::endl;
+    }
+
     void printMenu() const {
         std::cout << "Possible commands:\n"
                   << "1. Append text to current line.\n"
@@ -214,10 +240,12 @@ public:
                   << "5. Print the text.\n"
                   << "6. Insert a substring into the text.\n"
                   << "7. Search for a substring in the text.\n"
-                  << "8. Exit.\n";
+                  << "8. Delete a substring from the text.\n"
+                  << "9. Insert text with replacement at a specified position.\n"
+                  << "10. Exit.\n";
     }
 
-    void publicClearInputBuffer(const std::string& errorMessage) {
+    void publicClearInputBuffer(const std::string &errorMessage) {
         clearInputBuffer(errorMessage);
     }
 
@@ -249,6 +277,12 @@ public:
                 searchSubstring();
                 break;
             case 8:
+                deleteSubstring();
+                break;
+            case 9:
+                replaceSubstring();
+                break;
+            case 10:
                 freeMemory();
                 std::cout << "Okay, bye!" << std::endl;
                 break;
@@ -273,7 +307,7 @@ private:
         currentLine = nullptr;
     }
 
-    void clearInputBuffer(const std:: string& errorMessage) const {
+    void clearInputBuffer(const std::string &errorMessage) const {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << errorMessage << std::endl;
@@ -405,9 +439,9 @@ int main() {
         } else if (textManager.publicIsValidCommand(commandLine, command)) {
             textManager.processCommand(command);
         } else {
-            std::cout << "Invalid command! Please, enter a number from 1 to 8." << std::endl;
+            std::cout << "Invalid command! Please, enter a number from 1 to 10." << std::endl;
             continue;
         }
-    } while (command != 8);
+    } while (command != 10);
     return 0;
 }
