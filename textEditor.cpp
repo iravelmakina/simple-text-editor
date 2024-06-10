@@ -27,10 +27,11 @@ public:
 
 class TextManager {
 public:
-    TextManager() : head(nullptr), currentLine(nullptr) {}
+    TextManager() : head(nullptr), currentLine(nullptr), clipboard(nullptr) {}
 
     ~TextManager() {
         freeMemory();
+        delete[] clipboard;
     }
 
     void appendText() {
@@ -47,7 +48,7 @@ public:
             input[strcspn(input, "\n")] = '\0';
 
             if (input[0] == '\0') {
-                std::cout << "Invalid input. Please enter a non-empty string: " << std::endl;
+                std::cout << "Invalid input. Please, enter a non-empty string: " << std::endl;
                 continue;
             }
 
@@ -73,6 +74,7 @@ public:
             currentLine->next = newLine;
             currentLine = newLine;
         }
+        std::cout << "New line is started." << std::endl;
     }
 
     void saveToFile() {
@@ -231,6 +233,30 @@ public:
                   << lineIndex + 1 << " starting at position " << charIndex + 1 << "." << std::endl;
     }
 
+    void copyText() {
+        LineNode *curLine = nullptr;
+        int lineIndex = 0;
+        int charIndex = 0;
+        int curTextLen = 0;
+
+        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+
+        int numChars = getUserInputInt("Enter the number of symbols to copy: ");
+        if (charIndex + numChars > curTextLen) {
+            std::cout
+                    << "The number of characters to copy exceeds the length of the line."
+                    << std::endl;
+            return;
+        }
+
+        delete[] clipboard;
+        clipboard = new char[numChars + 1];
+        strncpy(clipboard, curLine->text + charIndex, numChars);
+        clipboard[numChars] = '\0';
+
+        std::cout << "Copied text: " << clipboard << std::endl;
+    }
+
     void printMenu() const {
         std::cout << "Possible commands:\n"
                   << "1. Append text to current line.\n"
@@ -242,7 +268,12 @@ public:
                   << "7. Search for a substring in the text.\n"
                   << "8. Delete a substring from the text.\n"
                   << "9. Insert text with replacement at a specified position.\n"
-                  << "10. Exit.\n";
+                  << "10. Undo last action.\n"
+                  << "11. Redo last undone action.\n"
+                  << "12. Cut text.\n"
+                  << "13. Copy text.\n"
+                  << "14. Paste text.\n"
+                  << "15. Exit.\n";
     }
 
     void publicClearInputBuffer(const std::string &errorMessage) {
@@ -283,6 +314,21 @@ public:
                 replaceSubstring();
                 break;
             case 10:
+                copyText();
+                break;
+            case 11:
+//                pasteText();
+                break;
+            case 12:
+//                cutText();
+                break;
+            case 13:
+//                undo();
+                break;
+            case 14:
+//                redo();
+                break;
+            case 15:
                 freeMemory();
                 std::cout << "Okay, bye!" << std::endl;
                 break;
@@ -295,6 +341,7 @@ public:
 private:
     LineNode *head;
     LineNode *currentLine;
+    char *clipboard;
 
     void freeMemory() {
         LineNode *current = head;
@@ -324,7 +371,7 @@ private:
     bool isValidCommand(char *line, int &command) {
         if (isInteger(line)) {
             command = atoi(line);
-            if (command >= 1 && command <= 8) return true;
+            if (command >= 1 && command <= 15) return true;
         }
         return false;
     }
@@ -442,6 +489,6 @@ int main() {
             std::cout << "Invalid command! Please, enter a number from 1 to 10." << std::endl;
             continue;
         }
-    } while (command != 10);
+    } while (command != 15);
     return 0;
 }
