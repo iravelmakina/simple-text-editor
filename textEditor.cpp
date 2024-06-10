@@ -279,6 +279,29 @@ public:
         std::cout << "Pasted text: " << clipboard << std::endl;
     }
 
+    void cutText() {
+        LineNode *curLine = nullptr;
+        int lineIndex = 0;
+        int charIndex = 0;
+        int curTextLen = 0;
+
+        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+
+        int numChars = getUserInputInt("Enter the number of symbols to cut: ");
+        if (charIndex + numChars > curTextLen) {
+            std::cout << "The number of characters to cut exceeds the length of the line." << std::endl;
+            return;
+        }
+
+        delete[] clipboard;
+        clipboard = new char[numChars + 1];
+        strncpy(clipboard, curLine->text + charIndex, numChars);
+        clipboard[numChars] = '\0';
+
+        memmove(curLine->text + charIndex, curLine->text + charIndex + numChars, curTextLen - numChars - charIndex + 1);
+        std::cout << "Cut " << numChars << " characters from line " << lineIndex + 1 << ", starting at position " << charIndex + 1 << "." << std::endl;
+    }
+
     void printMenu() const {
         std::cout << "Possible commands:\n"
                   << "1. Append text to current line.\n"
@@ -290,11 +313,11 @@ public:
                   << "7. Search for a substring in the text.\n"
                   << "8. Delete a substring from the text.\n"
                   << "9. Insert text with replacement at a specified position.\n"
-                  << "10. Undo last action.\n"
-                  << "11. Redo last undone action.\n"
-                  << "12. Cut text.\n"
-                  << "13. Copy text.\n"
-                  << "14. Paste text.\n"
+                  << "10. Cut text.\n"
+                  << "11. Copy text.\n"
+                  << "12. Paste text.\n"
+                  << "13. Undo last action.\n"
+                  << "14. Redo last undone action.\n"
                   << "15. Exit.\n";
     }
 
@@ -342,7 +365,7 @@ public:
                 pasteText();
                 break;
             case 12:
-//                cutText();
+                cutText();
                 break;
             case 13:
 //                undo();
