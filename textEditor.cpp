@@ -257,6 +257,28 @@ public:
         std::cout << "Copied text: " << clipboard << std::endl;
     }
 
+    void pasteText() {
+        if (!clipboard) {
+            std::cout << "Clipboard is empty. Copy some text first." << std::endl;
+            return;
+        }
+
+        LineNode *curLine = nullptr;
+        int lineIndex = 0;
+        int charIndex = 0;
+        int curTextLen = 0;
+
+        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+
+        int clipboardLen = strlen(clipboard);
+        if (!ensureCapacity(curLine, clipboardLen)) return;
+
+        memmove(curLine->text + charIndex + clipboardLen, curLine->text + charIndex, curTextLen - charIndex + 1);
+        memcpy(curLine->text + charIndex, clipboard, clipboardLen);
+
+        std::cout << "Pasted text: " << clipboard << std::endl;
+    }
+
     void printMenu() const {
         std::cout << "Possible commands:\n"
                   << "1. Append text to current line.\n"
@@ -317,7 +339,7 @@ public:
                 copyText();
                 break;
             case 11:
-//                pasteText();
+                pasteText();
                 break;
             case 12:
 //                cutText();
