@@ -328,7 +328,7 @@ public:
         command.newText = strdup(clipboard);
         command.oldTextLen = 0;
         command.newTextLen = clipboardLen;
-        pushCommand(command);
+        pushCommand(command); 
 
         memmove(curLine->text + charIndex + clipboardLen, curLine->text + charIndex, curTextLen - charIndex + 1);
         memcpy(curLine->text + charIndex, clipboard, clipboardLen);
