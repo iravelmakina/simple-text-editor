@@ -2,7 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include <limits>
-#include <stack>
+#include <stack> 
 
 #define BUFFER_SIZE 100
 #define MAX_FILENAME_LENGTH 21
@@ -33,9 +33,9 @@ public:
     ~TextManager() {
         freeMemory();
         while (!undoStack.empty()) {
-            freeCommand(undoStack.top());
-            undoStack.pop();
-        }
+              freeCommand(undoStack.top());
+              undoStack.pop();
+          }
     }
 
     void appendText() {
@@ -52,7 +52,7 @@ public:
             input[strcspn(input, "\n")] = '\0';
 
             if (input[0] == '\0') {
-                std::cout << "Invalid input. Please, enter a non-empty string: " << std::endl;
+                std::cout << "Invalid input. Please enter a non-empty string: " << std::endl;
                 continue;
             }
 
@@ -64,8 +64,8 @@ public:
             command.lineIndex = countLines() - 1;
             command.oldText = strdup(currentLine->text);
             command.newText = strdup(input);
-            pushCommand(command);
-
+            pushCommand(command);          
+          
             strcat(currentLine->text, input);
 
             if (inputLen < BUFFER_SIZE - 1) {
@@ -91,7 +91,7 @@ public:
         command.oldText = nullptr;
         command.newText = nullptr;
         pushCommand(command);
-
+      
         std::cout << "New line is started." << std::endl;
     }
 
@@ -178,7 +178,7 @@ public:
         command.oldTextLen = curTextLen;
         command.newTextLen = substringLen;
         pushCommand(command);
-
+      
         memmove(curLine->text + charIndex + substringLen, curLine->text + charIndex, curTextLen - charIndex + 1);
         memcpy(curLine->text + charIndex, substring, substringLen);
         std::cout << "Substring \"" << substring << "\" was inserted successfully into line "
@@ -420,7 +420,7 @@ public:
                   << "5. Print the text.\n"
                   << "6. Insert a substring into the text.\n"
                   << "7. Search for a substring in the text.\n"
-                  << "8. Delete a substring from the text.\n"
+                  << "8. Exit.\n";
                   << "9. Insert text with replacement at a specified position.\n"
                   << "10. Copy text.\n"
                   << "11. Paste text.\n"
@@ -430,7 +430,7 @@ public:
                   << "15. Exit.\n";
     }
 
-    void publicClearInputBuffer(const std::string &errorMessage) {
+    void publicClearInputBuffer(const std::string& errorMessage) {
         clearInputBuffer(errorMessage);
     }
 
@@ -508,7 +508,7 @@ private:
     };
     std::stack<Command> undoStack;
     std::stack<Command> redoStack;
-
+  
     void pushCommand(Command command) {
         undoStack.push(command);
         while (!redoStack.empty()) {
@@ -532,8 +532,8 @@ private:
         head = nullptr;
         currentLine = nullptr;
     }
-
-    void deleteLine(int lineIndex) {
+  
+   void deleteLine(int lineIndex) {
         LineNode *curLine = head;
         LineNode *prevLine = nullptr;
         for (int i = 0; i < lineIndex; ++i) {
@@ -550,7 +550,7 @@ private:
         delete curLine;
     }
 
-    void clearInputBuffer(const std::string &errorMessage) const {
+    void clearInputBuffer(const std:: string& errorMessage) const {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << errorMessage << std::endl;
@@ -567,7 +567,7 @@ private:
     bool isValidCommand(char *line, int &command) {
         if (isInteger(line)) {
             command = atoi(line);
-            if (command >= 1 && command <= 15) return true;
+            if (command >= 1 && command <= 8) return true;
         }
         return false;
     }
@@ -592,9 +592,8 @@ private:
             dup[n] = '\0';
         }
         return dup;
-    }
-
-
+    } 
+  
     bool ensureCapacity(LineNode *curLine, int additionalLength) {
         if (!curLine || !curLine->text) return false;
 
@@ -682,8 +681,9 @@ private:
         }
         return true;
     }
+}
 
-    void undoAppend(LineNode* curLine, Command& command) {
+void undoAppend(LineNode* curLine, Command& command) {
         strcpy(curLine->text, command.oldText);
     }
 
