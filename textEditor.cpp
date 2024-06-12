@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include <limits>
+#include <stack>
 
 #define BUFFER_SIZE 100
 #define MAX_FILENAME_LENGTH 21
@@ -19,11 +20,17 @@ public:
         } else std::cerr << "Memory allocation failed for text." << std::endl;
     }
 
+    LineNode(const LineNode &other) : capacity(other.capacity), next(nullptr) {
+        text = new(std::nothrow) char[capacity];
+        if (text) {
+            strcpy(text, other.text);
+        } else std::cerr << "Memory allocation failed for text." << std::endl;
+    }
+
     ~LineNode() {
         delete[] text;
     }
 };
-
 
 class TextManager {
 public:
@@ -31,9 +38,11 @@ public:
 
     ~TextManager() {
         freeMemory();
+        freeClipboard();
     }
 
     void appendText() {
+        saveState();
         if (!currentLine) {
             currentLine = new LineNode();
             if (!head)
@@ -47,7 +56,7 @@ public:
             input[strcspn(input, "\n")] = '\0';
 
             if (input[0] == '\0') {
-                std::cout << "Invalid input. Please, enter a non-empty string: " << std::endl;
+                std::cout << "Invalid input. Please enter a non-empty string: " << std::endl;
                 continue;
             }
 
@@ -64,6 +73,7 @@ public:
     }
 
     void addLine() {
+        saveState();
         if (!currentLine) {
             currentLine = new LineNode();
             if (!head)
@@ -73,7 +83,6 @@ public:
             currentLine->next = newLine;
             currentLine = newLine;
         }
-        std::cout << "New line is started." << std::endl;
     }
 
     void saveToFile() {
@@ -137,6 +146,7 @@ public:
     }
 
     void insertSubstring() {
+        saveState();
         LineNode *curLine = nullptr;
         int lineIndex = 0;
         int charIndex = 0;
@@ -185,6 +195,7 @@ public:
     }
 
     void deleteSubstring() {
+        saveState();
         LineNode *curLine = nullptr;
         int lineIndex = 0;
         int charIndex = 0;
@@ -207,6 +218,7 @@ public:
     }
 
     void replaceSubstring() {
+        saveState();
         LineNode *curLine = nullptr;
         int lineIndex = 0;
         int charIndex = 0;
@@ -257,6 +269,7 @@ public:
     }
 
     void pasteText() {
+        saveState();
         if (!clipboard) {
             std::cout << "Clipboard is empty. Copy some text first." << std::endl;
             return;
@@ -279,6 +292,7 @@ public:
     }
 
     void cutText() {
+        saveState();
         LineNode *curLine = nullptr;
         int lineIndex = 0;
         int charIndex = 0;
@@ -302,6 +316,26 @@ public:
         std::cout << "Cut " << numChars << " characters from line " << lineIndex + 1 << ", starting at position " << charIndex + 1 << "." << std::endl;
     }
 
+    void undo() {
+        if (undoStack.empty()) {
+            std::cout << "No actions to undo." << std::endl;
+            return;
+        }
+        saveCurrentStateForRedo();
+        restoreStateFromStack(undoStack);
+        std::cout << "Undo operation completed successfully." << std::endl;
+    }
+
+    void redo() {
+        if (redoStack.empty()) {
+            std::cout << "No actions to redo." << std::endl;
+            return;
+        }
+        saveCurrentStateForUndo();
+        restoreStateFromStack(redoStack);
+        std::cout << "Redo operation completed successfully." << std::endl;
+    }
+
     void printMenu() const {
         std::cout << "Possible commands:\n"
                   << "1. Append text to current line.\n"
@@ -321,7 +355,7 @@ public:
                   << "15. Exit.\n";
     }
 
-    void publicClearInputBuffer(const std::string &errorMessage) {
+    void publicClearInputBuffer(const std::string& errorMessage) {
         clearInputBuffer(errorMessage);
     }
 
@@ -371,7 +405,7 @@ public:
                 undo();
                 break;
             case 14:
-//                redo();
+                redo();
                 break;
             case 15:
                 freeMemory();
@@ -386,37 +420,76 @@ public:
 private:
     LineNode *head;
     LineNode *currentLine;
+    std::stack<LineNode*> undoStack;
+    std::stack<LineNode*> redoStack;
     char *clipboard;
 
-    void freeMemory() {
-        LineNode *current = head;
+    void saveState() {
+        LineNode* state = cloneList(head);
+        undoStack.push(state);
+        while (!redoStack.empty()) {
+            LineNode* temp = redoStack.top();
+            redoStack.pop();
+            freeList(temp);
+        }
+    }
+
+    void saveCurrentStateForUndo() {
+        LineNode* state = cloneList(head);
+        undoStack.push(state);
+    }
+
+    void saveCurrentStateForRedo() {
+        LineNode* state = cloneList(head);
+        redoStack.push(state);
+    }
+
+    LineNode* cloneList(LineNode* head) {
+        if (!head) return nullptr;
+        LineNode* newHead = new LineNode(*head);
+        LineNode* current = newHead;
+        LineNode* original = head->next;
+        while (original) {
+            current->next = new LineNode(*original);
+            current = current->next;
+            original = original->next;
+        }
+        return newHead;
+    }
+
+    void restoreStateFromStack(std::stack<LineNode*>& stack) {
+        freeMemory();
+        if (!stack.empty()) {
+            head = stack.top();
+            stack.pop();
+            currentLine = head;
+            while (currentLine && currentLine->next) {
+                currentLine = currentLine->next;
+            }
+        }
+    }
+
+    void freeList(LineNode* head) {
+        LineNode* current = head;
         while (current) {
-            LineNode *next = current->next;
+            LineNode* next = current->next;
             delete current;
             current = next;
         }
+    }
+
+    void freeMemory() {
+        freeList(head);
         head = nullptr;
         currentLine = nullptr;
     }
 
-    void deleteLine(int lineIndex) {
-        LineNode *curLine = head;
-        LineNode *prevLine = nullptr;
-        for (int i = 0; i < lineIndex; ++i) {
-            if (!curLine) return;
-            prevLine = curLine;
-            curLine = curLine->next;
-        }
-        if (!curLine) return;
-
-        if (!prevLine)
-            head = curLine->next;
-        else prevLine->next = curLine->next;
-
-        delete curLine;
+    void freeClipboard() {
+        delete[] clipboard;
+        clipboard = nullptr;
     }
 
-    void clearInputBuffer(const std::string &errorMessage) const {
+    void clearInputBuffer(const std:: string& errorMessage) const {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << errorMessage << std::endl;
@@ -527,7 +600,6 @@ private:
     }
 };
 
-
 int main() {
     TextManager textManager;
 
@@ -548,7 +620,7 @@ int main() {
         } else if (textManager.publicIsValidCommand(commandLine, command)) {
             textManager.processCommand(command);
         } else {
-            std::cout << "Invalid command! Please, enter a number from 1 to 10." << std::endl;
+            std::cout << "Invalid command! Please, enter a number from 1 to 15." << std::endl;
             continue;
         }
     } while (command != 15);
