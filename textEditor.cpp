@@ -2,7 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include <limits>
-#include <stack>
+#include <stack> 
 
 #define BUFFER_SIZE 100
 #define MAX_FILENAME_LENGTH 21
@@ -397,7 +397,7 @@ public:
                   << "5. Print the text.\n"
                   << "6. Insert a substring into the text.\n"
                   << "7. Search for a substring in the text.\n"
-                  << "8. Delete a substring from the text.\n"
+                  << "8. Exit.\n";
                   << "9. Insert text with replacement at a specified position.\n"
                   << "10. Copy text.\n"
                   << "11. Paste text.\n"
@@ -574,7 +574,7 @@ private:
         clipboard = nullptr;
     }
 
-    void clearInputBuffer(const std::string &errorMessage) const {
+    void clearInputBuffer(const std:: string& errorMessage) const {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << errorMessage << std::endl;
@@ -591,7 +591,7 @@ private:
     bool isValidCommand(char *line, int &command) {
         if (isInteger(line)) {
             command = atoi(line);
-            if (command >= 1 && command <= 15) return true;
+            if (command >= 1 && command <= 8) return true;
         }
         return false;
     }
