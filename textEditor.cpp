@@ -20,25 +20,29 @@ public:
         } else std::cerr << "Memory allocation failed for text." << std::endl;
     }
 
+    LineNode(const LineNode &other) : capacity(other.capacity), next(nullptr) {
+        text = new(std::nothrow) char[capacity];
+        if (text) {
+            strcpy(text, other.text);
+        } else std::cerr << "Memory allocation failed for text." << std::endl;
+    }
+
     ~LineNode() {
         delete[] text;
     }
 };
 
-
 class TextManager {
 public:
-    TextManager() : head(nullptr), currentLine(nullptr), clipboard(nullptr) {}
+    TextManager() : head(nullptr), currentLine(nullptr), clipboard(nullptr), cursor(0, 0) {}
 
     ~TextManager() {
         freeMemory();
-        while (!undoStack.empty()) {
-              freeCommand(undoStack.top());
-              undoStack.pop();
-          }
+        freeClipboard();
     }
 
-    void appendText() {
+    void appendText() { // always appends to the end regardless of cursor position
+        saveState();
         if (!currentLine) {
             currentLine = new LineNode();
             if (!head)
@@ -59,40 +63,30 @@ public:
             int inputLen = strlen(input);
             if (!ensureCapacity(currentLine, inputLen)) return;
 
-            Command command;
-            command.type = APPEND;
-            command.lineIndex = countLines() - 1;
-            command.oldText = strdup(currentLine->text);
-            command.newText = strdup(input);
-            pushCommand(command);          
-          
             strcat(currentLine->text, input);
 
             if (inputLen < BUFFER_SIZE - 1) {
                 std::cout << "Text was appended successfully." << std::endl;
+                moveCursor(cursor.first, strlen(currentLine->text));
                 break;
             }
         }
     }
 
     void addLine() {
+        saveState();
+
+        LineNode *newLine = new LineNode();
         if (!currentLine) {
-            currentLine = new LineNode();
-            if (!head)
-                head = currentLine;
+            currentLine = newLine;
+            head = currentLine;
         } else {
-            LineNode *newLine = new LineNode();
+            newLine->next = currentLine->next;
             currentLine->next = newLine;
             currentLine = newLine;
         }
-        Command command;
-        command.type = ADD_LINE;
-        command.lineIndex = countLines() - 1;
-        command.oldText = nullptr;
-        command.newText = nullptr;
-        pushCommand(command);
-      
         std::cout << "New line is started." << std::endl;
+        moveCursor(cursor.first + 1, 0);
     }
 
     void saveToFile() {
@@ -115,6 +109,7 @@ public:
             outFile << curLine->text << std::endl;
             curLine = curLine->next;
         }
+        outFile.close();
         std::cout << "Operation on file " << filename << " completed successfully." << std::endl;
     }
 
@@ -122,7 +117,7 @@ public:
         char filename[MAX_FILENAME_LENGTH];
         getUserInputString("Enter the file name (up to 20 characters):", filename, MAX_FILENAME_LENGTH);
 
-        std::ifstream inFile(filename);
+        FILE *inFile = fopen(filename, "r");
         if (!inFile) {
             std::cerr << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
             return;
@@ -131,14 +126,24 @@ public:
         freeMemory();
 
         char buffer[BUFFER_SIZE];
-        while (inFile.getline(buffer, BUFFER_SIZE)) {
+        currentLine = nullptr;
+        while (fgets(buffer, BUFFER_SIZE, inFile)) {
+            buffer[strcspn(buffer, "\n")] = '\0';
+
             LineNode *newLine = new LineNode();
+            if (!ensureCapacity(newLine, strlen(buffer))) {
+                fclose(inFile);
+                return;
+            }
             strcpy(newLine->text, buffer);
-            if (!currentLine) {
+
+            if (!head) {
                 head = newLine;
             } else currentLine->next = newLine;
             currentLine = newLine;
         }
+        moveCursor(0, 0);
+        fclose(inFile);
         std::cout << "Operation on file " << filename << " completed successfully." << std::endl;
     }
 
@@ -149,40 +154,49 @@ public:
         }
 
         LineNode *curLine = head;
+        int lineIndex = 0;
+        std::cout << "Your current text is:" << std::endl;
         while (curLine) {
-            std::cout << curLine->text << std::endl;
+            if (lineIndex == cursor.first) {
+                for (int i = 0; i < cursor.second; ++i)
+                    std::cout << curLine->text[i];
+                std::cout << "|"; // set the cursor before char
+                std::cout << (curLine->text + cursor.second) << std::endl;
+            } else std::cout << curLine->text << std::endl;
             curLine = curLine->next;
+            ++lineIndex;
         }
     }
 
     void insertSubstring() {
-        LineNode *curLine = nullptr;
-        int lineIndex = 0;
-        int charIndex = 0;
-        int curTextLen = 0;
+        saveState();
 
-        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+        if (!currentLine) {
+            std::cout << "No current line to insert into." << std::endl;
+            return;
+        }
 
         char substring[31];
         getUserInputString("Enter the substring to insert (up to 30 symbols):", substring, 31);
 
         int substringLen = strlen(substring);
-        if (!ensureCapacity(curLine, substringLen)) return;
+        int charIndex = cursor.second;
+        int curTextLen = strlen(currentLine->text);
 
-        Command command;
-        command.type = INSERT;
-        command.lineIndex = lineIndex;
-        command.charIndex = charIndex;
-        command.oldText = strndup(curLine->text, curTextLen);;
-        command.newText = strdup(substring);
-        command.oldTextLen = curTextLen;
-        command.newTextLen = substringLen;
-        pushCommand(command);
-      
-        memmove(curLine->text + charIndex + substringLen, curLine->text + charIndex, curTextLen - charIndex + 1);
-        memcpy(curLine->text + charIndex, substring, substringLen);
-        std::cout << "Substring \"" << substring << "\" was inserted successfully into line "
-                  << lineIndex + 1 << " starting at position " << charIndex + 1 << "." << std::endl;
+
+        if (charIndex > curTextLen) {
+            std::cout << "Cursor position out of bounds." << std::endl;
+            return;
+        }
+
+        if (!ensureCapacity(currentLine, substringLen)) return;
+
+        memmove(currentLine->text + charIndex + substringLen, currentLine->text + charIndex,
+                curTextLen - charIndex + 1);
+        memcpy(currentLine->text + charIndex, substring, substringLen);
+
+        std::cout << "Substring \"" << substring << "\" was inserted successfully at cursor position." << std::endl;
+        moveCursor(cursor.first, charIndex + substringLen);
     }
 
     void searchSubstring() const {
@@ -214,15 +228,17 @@ public:
     }
 
     void deleteSubstring() {
-        LineNode *curLine = nullptr;
-        int lineIndex = 0;
-        int charIndex = 0;
-        int curTextLen = 0;
+        saveState();
 
-        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+        if (!currentLine) {
+            std::cout << "No current line to insert into." << std::endl;
+            return;
+        }
 
         int numChars = getUserInputInt("Enter the number of symbols to delete: ");
+        int charIndex = cursor.second;
 
+        int curTextLen = strlen(currentLine->text);
         if (charIndex + numChars > curTextLen) {
             std::cout
                     << "The number of characters to delete exceeds the length of the line."
@@ -230,65 +246,51 @@ public:
             return;
         }
 
-        Command command;
-        command.type = DELETE;
-        command.lineIndex = lineIndex;
-        command.charIndex = charIndex;
-        command.oldText = strndup(curLine->text + charIndex, numChars);
-        command.newText = nullptr;
-        command.oldTextLen = numChars;
-        pushCommand(command);
+        memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars, curTextLen - numChars + 1);
 
-        memmove(curLine->text + charIndex, curLine->text + charIndex + numChars, curTextLen - numChars + 1);
-        std::cout << "Deleted " << numChars << " characters from line " << lineIndex + 1 << " starting at position "
-                  << charIndex + 1 << "." << std::endl;
+        std::cout << "Deleted " << numChars << " characters from cursor position." << std::endl;
+        moveCursor(cursor.first, charIndex);
     }
 
     void replaceSubstring() {
-        LineNode *curLine = nullptr;
-        int lineIndex = 0;
-        int charIndex = 0;
-        int curTextLen = 0;
+        saveState();
 
-        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+        if (!currentLine) {
+            std::cout << "No current line to replace in." << std::endl;
+            return;
+        }
 
         char substring[31];
         getUserInputString("Enter the substring to insert (up to 30 symbols):", substring, 31);
 
         int substringLen = strlen(substring);
+        int charIndex = cursor.second;
+        int curTextLen = strlen(currentLine->text);
 
         if ((curTextLen - charIndex < substringLen) &&
-            !ensureCapacity(curLine, substringLen - (curTextLen - charIndex)))
-            return;
-
-        Command command;
-        command.type = REPLACE;
-        command.lineIndex = lineIndex;
-        command.charIndex = charIndex;
-        command.oldText = strndup(curLine->text + charIndex, substringLen);
-        command.newText = strdup(substring);
-        command.oldTextLen = strlen(command.oldText);
-        command.newTextLen = substringLen;
-        pushCommand(command);
+            !ensureCapacity(currentLine, substringLen - (curTextLen - charIndex))) return;
 
         int newLength = charIndex + substringLen;
         if (newLength >= curTextLen)
-            curLine->text[newLength] = '\0';
+            currentLine->text[newLength] = '\0';
 
-        memcpy(curLine->text + charIndex, substring, substringLen);
-        std::cout << "Substring \"" << substring << "\" was inserted with replacement successfully into line "
-                  << lineIndex + 1 << " starting at position " << charIndex + 1 << "." << std::endl;
+        memcpy(currentLine->text + charIndex, substring, substringLen);
+
+        std::cout << "Substring \"" << substring << "\" was inserted with replacement successfully at cursor position."
+                  << std::endl;
+        moveCursor(cursor.first, charIndex + substringLen);
     }
 
     void copyText() {
-        LineNode *curLine = nullptr;
-        int lineIndex = 0;
-        int charIndex = 0;
-        int curTextLen = 0;
-
-        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+        if (!currentLine) {
+            std::cout << "No current line to copy from." << std::endl;
+            return;
+        }
 
         int numChars = getUserInputInt("Enter the number of symbols to copy: ");
+        int charIndex = cursor.second;
+        int curTextLen = strlen(currentLine->text);
+
         if (charIndex + numChars > curTextLen) {
             std::cout
                     << "The number of characters to copy exceeds the length of the line."
@@ -298,53 +300,53 @@ public:
 
         delete[] clipboard;
         clipboard = new char[numChars + 1];
-        strncpy(clipboard, curLine->text + charIndex, numChars);
+        strncpy(clipboard, currentLine->text + charIndex, numChars);
         clipboard[numChars] = '\0';
 
         std::cout << "Copied text: " << clipboard << std::endl;
+        moveCursor(cursor.first, charIndex + numChars);
     }
 
     void pasteText() {
+        saveState();
+
         if (!clipboard) {
             std::cout << "Clipboard is empty. Copy some text first." << std::endl;
             return;
         }
 
-        LineNode *curLine = nullptr;
-        int lineIndex = 0;
-        int charIndex = 0;
-        int curTextLen = 0;
-
-        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+        if (!currentLine) {
+            std::cout << "No current line to paste into." << std::endl;
+            return;
+        }
 
         int clipboardLen = strlen(clipboard);
-        if (!ensureCapacity(curLine, clipboardLen)) return;
+        int charIndex = cursor.second;
+        int curTextLen = strlen(currentLine->text);
 
-        Command command;
-        command.type = PASTE;
-        command.lineIndex = lineIndex;
-        command.charIndex = charIndex;
-        command.oldText = nullptr;
-        command.newText = strdup(clipboard);
-        command.oldTextLen = 0;
-        command.newTextLen = clipboardLen;
-        pushCommand(command); 
+        if (!ensureCapacity(currentLine, clipboardLen)) return;
 
-        memmove(curLine->text + charIndex + clipboardLen, curLine->text + charIndex, curTextLen - charIndex + 1);
-        memcpy(curLine->text + charIndex, clipboard, clipboardLen);
+        memmove(currentLine->text + charIndex + clipboardLen, currentLine->text + charIndex,
+                curTextLen - charIndex + 1);
+        memcpy(currentLine->text + charIndex, clipboard, clipboardLen);
+        currentLine->text[curTextLen + clipboardLen] = '\0';
 
         std::cout << "Pasted text: " << clipboard << std::endl;
+        moveCursor(cursor.first, charIndex + clipboardLen);
     }
 
     void cutText() {
-        LineNode *curLine = nullptr;
-        int lineIndex = 0;
-        int charIndex = 0;
-        int curTextLen = 0;
+        saveState();
 
-        if (!getLineAndIndices(curLine, lineIndex, charIndex, curTextLen)) return;
+        if (!currentLine) {
+            std::cout << "No current line to cut from." << std::endl;
+            return;
+        }
 
         int numChars = getUserInputInt("Enter the number of symbols to cut: ");
+        int charIndex = cursor.second;
+        int curTextLen = strlen(currentLine->text);
+
         if (charIndex + numChars > curTextLen) {
             std::cout << "The number of characters to cut exceeds the length of the line." << std::endl;
             return;
@@ -352,21 +354,14 @@ public:
 
         delete[] clipboard;
         clipboard = new char[numChars + 1];
-        strncpy(clipboard, curLine->text + charIndex, numChars);
+        strncpy(clipboard, currentLine->text + charIndex, numChars);
         clipboard[numChars] = '\0';
 
-        Command command;
-        command.type = DELETE;
-        command.lineIndex = lineIndex;
-        command.charIndex = charIndex;
-        command.oldText = strndup(curLine->text + charIndex, numChars);
-        command.newText = nullptr;
-        command.oldTextLen = numChars;
-        command.newTextLen = 0;
-        pushCommand(command);
+        memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars,
+                curTextLen - numChars - charIndex + 1);
 
-        memmove(curLine->text + charIndex, curLine->text + charIndex + numChars, curTextLen - numChars - charIndex + 1);
-        std::cout << "Cut " << numChars << " characters from line " << lineIndex + 1 << ", starting at position " << charIndex + 1 << "." << std::endl;
+        std::cout << "Cut text: " <<  clipboard << std::endl;
+        moveCursor(cursor.first, charIndex);
     }
 
     void undo() {
@@ -374,41 +369,23 @@ public:
             std::cout << "No actions to undo." << std::endl;
             return;
         }
-        Command command = undoStack.top();
+        saveCurrentStateForRedo();
+        auto state = undoStack.top();
         undoStack.pop();
+        restoreState(state);
+        std::cout << "Undo operation completed successfully." << std::endl;
+    }
 
-        LineNode *curLine = head;
-        for (int i = 0; i < command.lineIndex; ++i)
-            curLine = curLine->next;
-
-        switch (command.type) {
-            case APPEND:
-                undoAppend(curLine, command);
-                break;
-            case ADD_LINE:
-                undoAddLine(command);
-                break;
-            case INSERT:
-                undoInsert(curLine, command);
-                break;
-            case DELETE:
-                undoDelete(curLine, command);
-                break;
-            case REPLACE:
-                undoReplace(curLine, command);
-                break;
-            case CUT:
-                undoCut(curLine, command);
-                break;
-            case PASTE:
-                undoPaste(curLine, command);
-                break;
-            default:
-                std::cout << "Undo not applicable for this command type." << std::endl;
-                return;
+    void redo() {
+        if (redoStack.empty()) {
+            std::cout << "No actions to redo." << std::endl;
+            return;
         }
-        redoStack.push(command);
-        std::cout << "Undo performed." << std::endl;
+        saveCurrentStateForUndo();
+        auto state = redoStack.top();
+        redoStack.pop();
+        restoreState(state);
+        std::cout << "Redo operation completed successfully." << std::endl;
     }
 
     void printMenu() const {
@@ -430,7 +407,37 @@ public:
                   << "15. Exit.\n";
     }
 
-    void publicClearInputBuffer(const std::string& errorMessage) {
+    void setCursorPosition() {
+        int lineIndex = getUserInputInt("Enter the line index: ") - 1;
+        int charIndex = getUserInputInt("Enter the character index: ") - 1;
+
+        if (lineIndex < 0 || charIndex < 0) {
+            std::cout << "Line and character indices must be greater than 0." << std::endl;
+            return;
+        }
+
+        LineNode *curLine = head;
+        int currentLineIndex = 0;
+
+        while (curLine && currentLineIndex < lineIndex) {
+            curLine = curLine->next;
+            ++currentLineIndex;
+        }
+
+        if (!curLine) {
+            std::cout << "Line index out of bounds." << std::endl;
+            return;
+        }
+
+        int curTextLen = strlen(curLine->text);
+        if (charIndex > curTextLen) {
+            std::cout << "Character index out of bounds." << std::endl;
+            return;
+        }
+        moveCursor(lineIndex, charIndex);
+    }
+
+    void publicClearInputBuffer(const std::string &errorMessage) {
         clearInputBuffer(errorMessage);
     }
 
@@ -480,7 +487,7 @@ public:
                 undo();
                 break;
             case 14:
-//                redo();
+                redo();
                 break;
             case 15:
                 freeMemory();
@@ -495,59 +502,76 @@ public:
 private:
     LineNode *head;
     LineNode *currentLine;
+    std::stack<std::pair<LineNode *, std::pair<int, int>>> undoStack;
+    std::stack<std::pair<LineNode *, std::pair<int, int>>> redoStack;
+    std::pair<int, int> cursor;
     char *clipboard;
-    enum CommandType {APPEND, ADD_LINE, INSERT, DELETE, REPLACE, CUT, PASTE};
-    struct Command {
-        CommandType type;
-        int lineIndex;
-        int charIndex;
-        char *oldText;
-        char *newText;
-        int oldTextLen;
-        int newTextLen;
-    };
-    std::stack<Command> undoStack;
-    std::stack<Command> redoStack;
-  
-    void pushCommand(Command command) {
-        undoStack.push(command);
+
+    void saveState() {
+        undoStack.push({cloneList(head), cursor});
         while (!redoStack.empty()) {
-            freeCommand(redoStack.top());
+            freeList(redoStack.top().first);
             redoStack.pop();
         }
     }
 
-    void freeCommand(Command &command) {
-        delete[] command.oldText;
-        delete[] command.newText;
+    void saveCurrentStateForUndo() {
+        LineNode *state = cloneList(head);
+        undoStack.push({state, cursor});
     }
 
-    void freeMemory() {
+    void saveCurrentStateForRedo() {
+        LineNode *state = cloneList(head);
+        redoStack.push({state, cursor});
+    }
+
+    LineNode *cloneList(LineNode *head) {
+        if (!head) return nullptr;
+        LineNode *newHead = new LineNode(head->capacity);
+        strcpy(newHead->text, head->text);
+        LineNode *current = newHead;
+        LineNode *original = head->next;
+        while (original) {
+            current->next = new LineNode(original->capacity);
+            strcpy(current->next->text, original->text);
+            current = current->next;
+            original = original->next;
+        }
+        return newHead;
+    }
+
+
+    void restoreState(const std::pair<LineNode *, std::pair<int, int>> &state) {
+        freeList(head);
+        head = cloneList(state.first);
+        cursor = state.second;
+
+        currentLine = head;
+        int lineIndex = 0;
+        while (currentLine && lineIndex < cursor.first) {
+            currentLine = currentLine->next;
+            lineIndex++;
+        }
+    }
+
+    void freeList(LineNode *head) {
         LineNode *current = head;
         while (current) {
             LineNode *next = current->next;
             delete current;
             current = next;
         }
+    }
+
+    void freeMemory() {
+        freeList(head);
         head = nullptr;
         currentLine = nullptr;
     }
-  
-   void deleteLine(int lineIndex) {
-        LineNode *curLine = head;
-        LineNode *prevLine = nullptr;
-        for (int i = 0; i < lineIndex; ++i) {
-            if (!curLine) return;
-            prevLine = curLine;
-            curLine = curLine->next;
-        }
-        if (!curLine) return;
 
-        if (!prevLine)
-            head = curLine->next;
-        else prevLine->next = curLine->next;
-
-        delete curLine;
+    void freeClipboard() {
+        delete[] clipboard;
+        clipboard = nullptr;
     }
 
     void clearInputBuffer(const std:: string& errorMessage) const {
@@ -572,28 +596,6 @@ private:
         return false;
     }
 
-    int countLines() {
-        int counter = 0;
-        LineNode *curLine = head;
-        while (curLine) {
-            ++counter;
-            curLine = curLine->next;
-        }
-        return counter;
-    }
-
-    char* strndup(const char* str, size_t n) {
-        size_t len = strlen(str);
-        if (len < n)
-            n = len;
-        char* dup = new char[n + 1];
-        if (dup) {
-            strncpy(dup, str, n);
-            dup[n] = '\0';
-        }
-        return dup;
-    } 
-  
     bool ensureCapacity(LineNode *curLine, int additionalLength) {
         if (!curLine || !curLine->text) return false;
 
@@ -652,87 +654,33 @@ private:
         }
     }
 
-    bool getLineAndIndices(LineNode *&curLine, int &lineIndex, int &charIndex, int &curTextLen) {
-        if (!head) {
-            std::cout << "The text is empty. Please, enter something first." << std::endl;
-            return false;
-        }
+    void moveCursor(int lineIndex, int charIndex) {
+        cursor.first = lineIndex;
+        cursor.second = charIndex;
 
-        lineIndex = getUserInputInt("Enter the line index: ") - 1;
-        charIndex = getUserInputInt("Enter the character index: ") - 1;
-
-        curLine = head;
+        currentLine = head;
         int currentLineIndex = 0;
-
-        while (curLine && currentLineIndex < lineIndex) {
-            curLine = curLine->next;
-            ++currentLineIndex;
+        while (currentLine && currentLineIndex < lineIndex) {
+            currentLine = currentLine->next;
+            currentLineIndex++;
         }
 
-        if (!curLine) {
-            std::cout << "Line index out of bounds." << std::endl;
-            return false;
-        }
-
-        curTextLen = strlen(curLine->text);
-        if (charIndex > curTextLen) {
-            std::cout << "Character index out of bounds." << std::endl;
-            return false;
-        }
-        return true;
-    }
-}
-
-void undoAppend(LineNode* curLine, Command& command) {
-        strcpy(curLine->text, command.oldText);
+        displayCursor();
     }
 
-    void undoAddLine(Command& command) {
-        deleteLine(command.lineIndex);
-    }
-
-    void undoInsert(LineNode* curLine, Command& command) {
-        memmove(curLine->text + command.charIndex,
-                curLine->text + command.charIndex + command.newTextLen,
-                strlen(curLine->text) - command.charIndex - command.newTextLen + 1);
-    }
-
-    void undoDelete(LineNode* curLine, Command& command) {
-        if (!ensureCapacity(curLine, command.oldTextLen)) return;
-        memmove(curLine->text + command.charIndex + command.oldTextLen,
-                curLine->text + command.charIndex,
-                strlen(curLine->text) - command.charIndex + 1);
-        memcpy(curLine->text + command.charIndex, command.oldText, command.oldTextLen);
-    }
-
-    void undoReplace(LineNode* curLine, Command& command) {
-        memcpy(curLine->text + command.charIndex, command.oldText, command.oldTextLen);
-    }
-
-    void undoCut(LineNode* curLine, Command& command) {
-        if (!ensureCapacity(curLine, command.oldTextLen)) return;
-        memmove(curLine->text + command.charIndex + command.oldTextLen,
-                curLine->text + command.charIndex,
-                strlen(curLine->text) - command.charIndex + 1);
-        memcpy(curLine->text + command.charIndex, command.oldText, command.oldTextLen);
-    }
-
-    void undoPaste(LineNode* curLine, Command& command) {
-        memmove(curLine->text + command.charIndex,
-                curLine->text + command.charIndex + command.newTextLen,
-                strlen(curLine->text) - command.charIndex - command.newTextLen + 1);
+    void displayCursor() const {
+        std::cout << "Cursor is at line " << cursor.first + 1 << ", position " << cursor.second + 1 << "." << std::endl;
     }
 };
-
 
 int main() {
     TextManager textManager;
 
-    std::cout << "Welcome! Enter 'm' to see available commands." << std::endl;
+    std::cout << "Welcome! Enter 'm' to see available commands or 'c' to set cursor position." << std::endl;
     char commandLine[BUFFER_SIZE];
     int command;
     do {
-        std::cout << "Please, choose your command: " << std::endl;
+        std::cout << "\nPlease, choose your command: " << std::endl;
         std::cin.getline(commandLine, BUFFER_SIZE);
 
         if (std::cin.fail()) {
@@ -742,10 +690,12 @@ int main() {
 
         if (strcmp(commandLine, "m") == 0) {
             textManager.printMenu();
+        } else if (strcmp(commandLine, "c") == 0) {
+            textManager.setCursorPosition();
         } else if (textManager.publicIsValidCommand(commandLine, command)) {
             textManager.processCommand(command);
         } else {
-            std::cout << "Invalid command! Please, enter a number from 1 to 10." << std::endl;
+            std::cout << "Invalid command! Please, enter a number from 1 to 15." << std::endl;
             continue;
         }
     } while (command != 15);
