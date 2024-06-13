@@ -145,7 +145,7 @@ public:
         moveCursor(0, 0);
         fclose(inFile);
         std::cout << "Operation on file " << filename << " completed successfully." << std::endl;
-    } 
+    }
 
     void printText() const {
         if (!head) {
@@ -155,6 +155,7 @@ public:
 
         LineNode *curLine = head;
         int lineIndex = 0;
+        std::cout << "Your current text is:" << std::endl;
         while (curLine) {
             if (lineIndex == cursor.first) {
                 for (int i = 0; i < cursor.second; ++i)
@@ -359,7 +360,7 @@ public:
         memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars,
                 curTextLen - numChars - charIndex + 1);
 
-        std::cout << "Cut " << numChars << " characters from cursor position." << std::endl;
+        std::cout << "Cut text: " <<  clipboard << std::endl;
         moveCursor(cursor.first, charIndex);
     }
 
@@ -409,6 +410,11 @@ public:
     void setCursorPosition() {
         int lineIndex = getUserInputInt("Enter the line index: ") - 1;
         int charIndex = getUserInputInt("Enter the character index: ") - 1;
+
+        if (lineIndex < 0 || charIndex < 0) {
+            std::cout << "Line and character indices must be greater than 0." << std::endl;
+            return;
+        }
 
         LineNode *curLine = head;
         int currentLineIndex = 0;
@@ -674,7 +680,7 @@ int main() {
     char commandLine[BUFFER_SIZE];
     int command;
     do {
-        std::cout << "Please, choose your command: " << std::endl;
+        std::cout << "\nPlease, choose your command: " << std::endl;
         std::cin.getline(commandLine, BUFFER_SIZE);
 
         if (std::cin.fail()) {
