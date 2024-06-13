@@ -1,7 +1,7 @@
-# Simple Text Editor: The Basics of Procedural and Structural Programming
+# Simple Text Editor: The Basics of Procedural, Structural and Object-oriented Programming
 
 ## Purpose of Work
-Understand the basics of procedural and structural programming by having hands-on experience in using these paradigms. Learn how memory management works inside the process, understand the virtual memory concept and typical issues with memory allocation and deallocation, and learn the basic data types.
+Understand the basics of procedural, structural and object-oriented programming by having hands-on experience in using these paradigms.
 
 ## Task
 Develop a console-based text editor with the following functionalities:
@@ -60,71 +60,81 @@ Develop a console-based text editor with the following functionalities:
 
 7. **(Optional) Clearing the console**
 
-    In this case, you should clean the console before each command starts.
 
-## Task Milestones
-1. **Implement input command parser**
-    - Print help information, read the command from the user, and respond with `The command is not implemented` if the command is not available.
+8. **Delete Command**
+    ```
+    Choose the command:
+    > 8
+    Choose line, index and number of symbols: 0 0 7
+    Choose the command:
+    > 5
+    my text editor!
+    ```
 
-2. **Implement text memory storage**
-    - Consider the following format for text memory storage:
-        ```
-        M y t e x t \0
-        ```
-      where `\0` represents the end of the string. Use dynamic arrays or linked lists for efficient memory management.
+9. **Undo Command**
+    ```
+    Choose the command:
+    > 9
+    Choose the command:
+    > 5
+    Hello, my text editor!
+    ```
 
-3. **Implement text memory printing to console**
-    - Iterate through the data structure and print each symbol to the console.
+10. **Redo Command**
+    ```
+    Choose the command:
+    > 10
+    Choose the command:
+    > 5
+    my text editor!
+    ```
 
-4. **Implement the logic to save text to file**
-    - Save text to a file using the following example:
-        ```c
-        #include <stdio.h>
-        int main() {
-            FILE* file;
-            file = fopen("myfile.txt", "w");
-            if (file != NULL) {
-                fputs("Hello, files world!", file);
-                fclose(file);
-            }
-            return 0;
-        }
-        ```
+11. **Cut Command**
+    ```
+    Choose the command:
+    > 11 (cut command)
+    Choose line and index and number of symbols: 0 0 3
+    Choose the command:
+    > 5
+    text editor!
+    ```
 
-5. **Implement the logic to load text from file**
-    - Load text from a file using the following example:
-        ```c
-        #include <stdio.h>
-        int main() {
-            FILE* file;
-            char mystring[100];
-            file = fopen("MyFile.txt", "r");
-            if (file == NULL) {
-                printf("Error opening file");
-            } else {
-                if (fgets(mystring, 100, file) != NULL) {
-                    printf("%s", mystring);
-                }
-                fclose(file);
-            }
-            return 0;
-        }
-        ```
+12. **Paste Command**
+    ```
+    Choose the command:
+    > 12 (paste command)
+    Choose line and index: 0 0
+    Choose the command:
+    > 5
+    my text editor!
+    ```
 
-6. **Implement substring search mechanism**
-    - Iterate through the text document and compare each symbol with the given substring. Find all matched substrings, not just the first or last one.
+13. **Copy Command**
+    ```
+    Choose the command:
+    > 13 (copy command)
+    Choose line and index and number of symbols: 0 0 15
+    Choose the command:
+    > 12 (paste command)
+    Choose line and index: 0 0
+    Choose the command:
+    > 5
+    my text editor!my text editor!
+    ```
 
-7. **Implement substring insertion mechanism**
-    - Insert a substring using line and symbol indexing (the insertion position). Consider memory reallocation and moving, for example:
-        ```
-        m a p \0
-        ```
-      Insert `hash` at line 0, starting from the 0th element:
-        ```
-        h a s h m a p \0
-        ```
+14. **Insert with Replacement Command**
+    ```
+    Choose the command:
+    > 14
+    Choose line and index: 0 0
+    Write text: Hello, world!
+    Choose the command:
+    > 5
+    Hello, world!or!my text editor!
+    ```
 
-8. **Implement the console clearing mechanism**
+15. **(Optional) Implement cursor-based logic**
+
 
 ## How to Use
 1. Clone the repository.
