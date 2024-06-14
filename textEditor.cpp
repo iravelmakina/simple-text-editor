@@ -19,12 +19,15 @@ public:
             text[0] = '\0';
         } else std::cerr << "Memory allocation failed for text." << std::endl;
     }
-
+    // copy constructor
     LineNode(const LineNode &other) : capacity(other.capacity), next(nullptr) {
         text = new(std::nothrow) char[capacity];
         if (text) {
             strcpy(text, other.text);
         } else std::cerr << "Memory allocation failed for text." << std::endl;
+
+        if (other.next)
+            next = new LineNode(*other.next);
     }
 
     ~LineNode() {
@@ -246,7 +249,7 @@ public:
             return;
         }
 
-        memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars, curTextLen - numChars + 1);
+        memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars, curTextLen - numChars + 1); // null-terminator
 
         std::cout << "Deleted " << numChars << " characters from cursor position." << std::endl;
         moveCursor(cursor.first, charIndex);
@@ -397,7 +400,7 @@ public:
                   << "5. Print the text.\n"
                   << "6. Insert a substring into the text.\n"
                   << "7. Search for a substring in the text.\n"
-                  << "8. Exit.\n";
+                  << "8. Exit.\n"
                   << "9. Insert text with replacement at a specified position.\n"
                   << "10. Copy text.\n"
                   << "11. Paste text.\n"
@@ -527,19 +530,8 @@ private:
 
     LineNode *cloneList(LineNode *head) {
         if (!head) return nullptr;
-        LineNode *newHead = new LineNode(head->capacity);
-        strcpy(newHead->text, head->text);
-        LineNode *current = newHead;
-        LineNode *original = head->next;
-        while (original) {
-            current->next = new LineNode(original->capacity);
-            strcpy(current->next->text, original->text);
-            current = current->next;
-            original = original->next;
-        }
-        return newHead;
+        return new LineNode(*head);
     }
-
 
     void restoreState(const std::pair<LineNode *, std::pair<int, int>> &state) {
         freeList(head);
@@ -551,7 +543,7 @@ private:
         while (currentLine && lineIndex < cursor.first) {
             currentLine = currentLine->next;
             lineIndex++;
-        }
+        } //restore the state of the text editor to a previous state that's stored in a stack
     }
 
     void freeList(LineNode *head) {
@@ -591,7 +583,7 @@ private:
     bool isValidCommand(char *line, int &command) {
         if (isInteger(line)) {
             command = atoi(line);
-            if (command >= 1 && command <= 8) return true;
+            if (command >= 1 && command <= 15) return true;
         }
         return false;
     }
