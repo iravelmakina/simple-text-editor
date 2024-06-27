@@ -162,12 +162,59 @@ public:
         }
     }
 
+    char* encrypt(const char* message, int shift) {
+        return encryption(message, shift);
+    }
+
+    char* decrypt(const char* message, int shift) {
+        return decryption(message, shift);
+    }
+
+    void encryptFile(const char* inputFilePath, const char* outputFilePath, int shift) {
+        processFile(inputFilePath, outputFilePath, shift, encryption);
+    }
+
+    void decryptFile(const char* inputFilePath, const char* outputFilePath, int shift) {
+        processFile(inputFilePath, outputFilePath, shift, decryption);
+    }
+
 private:
     HINSTANCE handle;
     typedef char* (*encryption_ptr)(const char*, int);
     typedef char* (*decryption_ptr)(const char*, int);
     encryption_ptr encryption;
     decryption_ptr decryption;
+
+    void processFile(const char* inputFilePath, const char* outputFilePath, int shift, char* (*process)(const char*, int)) {
+        std::ifstream inputFile(inputFilePath, std::ios::binary);
+        if (!inputFile.is_open()) {
+            std::cerr << "Failed to open input file. Please, make sure path exists." << std::endl;
+            return;
+        }
+
+        inputFile.seekg(0, std::ios::end);
+        size_t fileSize = inputFile.tellg();
+        inputFile.seekg(0, std::ios::beg);
+
+        char* content = new char[fileSize + 1];
+        inputFile.read(content, fileSize);
+        inputFile.close();
+        content[fileSize] = '\0';
+
+        char* processedContent = process(content, shift);
+        delete[] content;
+
+        std::ofstream outputFile(outputFilePath, std::ios::binary);
+        if (!outputFile.is_open()){
+            delete[] processedContent;
+            std::cerr << "Failed to open output file. Please, make sure path exists." << std::endl;
+            return;
+        }
+
+        outputFile.write(processedContent, fileSize);
+        outputFile.close();
+        delete[] processedContent;
+    }
 };
 
 class TextManager {
