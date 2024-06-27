@@ -2,10 +2,10 @@
 #include <fstream>
 #include <cstring>
 #include <limits>
-#include <stack> 
+#include <stack>
 
-#define BUFFER_SIZE 100
-#define MAX_FILENAME_LENGTH 21
+const int BUFFER_SIZE = 100;
+const int MAX_FILENAME_LENGTH = 21;
 
 class LineNode {
 public:
@@ -17,21 +17,34 @@ public:
         text = new(std::nothrow) char[capacity];
         if (text) {
             text[0] = '\0';
-        } else std::cerr << "Memory allocation failed for text." << std::endl;
+        } else {
+            std::cerr << "Memory allocation failed for text." << std::endl;
+            return;
+        }
     }
+
     // copy constructor
     LineNode(const LineNode &other) : capacity(other.capacity), next(nullptr) {
         text = new(std::nothrow) char[capacity];
         if (text) {
             strcpy(text, other.text);
-        } else std::cerr << "Memory allocation failed for text." << std::endl;
+        } else {
+            std::cerr << "Memory allocation failed for text." << std::endl;
+        }
 
-        if (other.next)
+        if (other.next) {
             next = new LineNode(*other.next);
+        }
     }
 
     ~LineNode() {
         delete[] text;
+        text = nullptr;
+    }
+
+    friend std::ostream &operator<<(std::ostream &out, const LineNode &lineNode) {
+        out << lineNode.text;
+        return out;
     }
 };
 
