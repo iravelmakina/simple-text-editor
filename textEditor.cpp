@@ -48,6 +48,67 @@ public:
     }
 };
 
+
+class Text {
+private:
+    LineNode *head;
+    LineNode *tail;
+
+public:
+    Text() : head(nullptr), tail(nullptr) {}
+
+    Text(const Text &other) : head(nullptr), tail(nullptr) {
+        LineNode *current = other.head;
+        while (current) {
+            appendLine(current->text);
+            current = current->next;
+        }
+    }
+
+    ~Text() {
+        clear();
+    }
+
+    void appendLine(const char *line) {
+        LineNode *newNode = new LineNode(strlen(line) + 1);
+        strcpy(newNode->text, line);
+        if (!head) {
+            head = tail = newNode;
+        } else {
+            tail->next = newNode;
+            tail = newNode;
+        }
+    }
+
+    void clear() {
+        LineNode *current = head;
+        while (current) {
+            LineNode *toDelete = current;
+            current = current->next;
+            delete toDelete;
+        }
+        head = tail = nullptr;
+    }
+
+    friend std::ostream &operator<<(std::ostream &out, const Text &text) {
+        LineNode *current = text.head;
+        while (current) {
+            out << *current << std::endl;
+            current = current->next;
+        }
+        return out;
+    }
+
+    LineNode *getHead() const {
+        return head;
+    }
+
+    void setHead(LineNode *node) {
+        head = node;
+    }
+};
+
+
 class TextManager {
 public:
     TextManager() : head(nullptr), currentLine(nullptr), clipboard(nullptr), cursor(0, 0) {}
