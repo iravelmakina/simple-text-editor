@@ -3,6 +3,7 @@
 #include <cstring>
 #include <limits>
 #include <stack>
+#include <windows.h>
 
 const int BUFFER_SIZE = 100;
 const int MAX_FILENAME_LENGTH = 21;
@@ -134,6 +135,40 @@ public:
     }
 };
 
+class CaesarCipher {
+public:
+    CaesarCipher(const char* dllPath) {
+        handle = LoadLibrary(TEXT(dllPath));
+        if (!handle || handle == INVALID_HANDLE_VALUE) {
+            throw std::runtime_error("Library was not found");
+        }
+
+        encryption = (encryption_ptr) GetProcAddress(handle, TEXT("encrypt"));
+        if (!encryption) {
+            FreeLibrary(handle);
+            throw std::runtime_error("Function 'encrypt' was not found");
+        }
+
+        decryption = (decryption_ptr) GetProcAddress(handle, TEXT("decrypt"));
+        if (!decryption) {
+            FreeLibrary(handle);
+            throw std::runtime_error ("Function 'decrypt' was not found");
+        }
+    }
+
+    ~CaesarCipher() {
+        if (handle) {
+            FreeLibrary(handle);
+        }
+    }
+
+private:
+    HINSTANCE handle;
+    typedef char* (*encryption_ptr)(const char*, int);
+    typedef char* (*decryption_ptr)(const char*, int);
+    encryption_ptr encryption;
+    decryption_ptr decryption;
+};
 
 class TextManager {
 public:
