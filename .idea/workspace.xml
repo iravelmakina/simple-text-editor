@@ -8,7 +8,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="83410d97-3bcf-4e35-8d16-8febf08be2f8" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/textEditor.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/textEditor.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -44,7 +43,7 @@
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "commands-functionality",
+    "git-widget-placeholder": "encrypt-decrypt-file",
     "last_opened_file_path": "C:/Users/user/Documents/GitHub/simple-text-editor-ivelmakina/textEditor.cpp",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",

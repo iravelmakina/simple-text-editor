@@ -109,6 +109,32 @@ public:
 };
 
 
+class Cursor {
+private:
+    int lineIndex;
+    int charIndex;
+public:
+    Cursor(int line = 0, int ch = 0) : lineIndex(line), charIndex(ch) {}
+
+    int getLine() const { return lineIndex; }
+
+    int getChar() const { return charIndex; }
+
+    void setLine(int line) { lineIndex = line; }
+
+    void setChar(int ch) { charIndex = ch; }
+
+    void move(int line, int ch) {
+        lineIndex = line;
+        charIndex = ch;
+    }
+
+    void display() const {
+        std::cout << "Cursor is at line " << lineIndex + 1 << ", position " << charIndex + 1 << "." << std::endl;
+    }
+};
+
+
 class TextManager {
 public:
     TextManager() : head(nullptr), currentLine(nullptr), clipboard(nullptr), cursor(0, 0) {}
