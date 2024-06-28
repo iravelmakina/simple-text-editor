@@ -1,11 +1,12 @@
 #include <iostream>
-#include <fstream>
 #include <cstring>
-#include <limits>
-#include <stack> 
+#include <fstream>
+#include <stack>
+#include <filesystem>
+#include <windows.h>
 
-#define BUFFER_SIZE 100
-#define MAX_FILENAME_LENGTH 21
+
+const int BUFFER_SIZE = 100;
 
 class LineNode {
 public:
@@ -17,39 +18,237 @@ public:
         text = new(std::nothrow) char[capacity];
         if (text) {
             text[0] = '\0';
-        } else std::cerr << "Memory allocation failed for text." << std::endl;
+        } else {
+            std::cout << "Memory allocation failed for text." << std::endl;
+            return;
+        }
     }
-    // copy constructor
+
     LineNode(const LineNode &other) : capacity(other.capacity), next(nullptr) {
         text = new(std::nothrow) char[capacity];
         if (text) {
             strcpy(text, other.text);
-        } else std::cerr << "Memory allocation failed for text." << std::endl;
+        } else {
+            std::cout << "Memory allocation failed for text." << std::endl;
+        }
 
-        if (other.next)
+        if (other.next) {
             next = new LineNode(*other.next);
+        }
     }
 
     ~LineNode() {
         delete[] text;
+        text = nullptr;
+    }
+
+    friend std::ostream &operator<<(std::ostream &out, const LineNode &lineNode) {
+        out << lineNode.text;
+        return out;
+    }
+};
+
+
+class Text {
+private:
+    LineNode *head;
+    LineNode *tail;
+
+public:
+    Text() : head(nullptr), tail(nullptr) {}
+
+    Text(const Text &other) : head(nullptr), tail(nullptr) {
+        LineNode *current = other.head;
+        while (current) {
+            appendLine(current->text);
+            current = current->next;
+        }
+    }
+
+    ~Text() {
+        clear();
+    }
+
+    void appendLine(const char *line) {
+        LineNode *newNode = new LineNode(strlen(line) + 1);
+        if (!newNode->text) {
+            std::cout << "Memory allocation failed for new line." << std::endl;
+            delete newNode;
+            return;
+        }
+        strcpy(newNode->text, line);
+        if (!head) {
+            head = tail = newNode;
+        } else {
+            tail->next = newNode;
+            tail = newNode;
+        }
+    }
+
+    void clear() {
+        LineNode *current = head;
+        while (current) {
+            LineNode *toDelete = current;
+            current = current->next;
+            delete toDelete;
+        }
+        head = tail = nullptr;
+    }
+
+    friend std::ostream &operator<<(std::ostream &out, const Text &text) {
+        LineNode *current = text.head;
+        while (current) {
+            out << *current << std::endl;
+            current = current->next;
+        }
+        return out;
+    }
+
+    LineNode *getHead() const {
+        return head;
+    }
+
+    void setHead(LineNode *node) {
+        head = node;
+    }
+};
+
+
+class Cursor {
+private:
+    int lineIndex;
+    int charIndex;
+public:
+    Cursor(int line = 0, int ch = 0) : lineIndex(line), charIndex(ch) {}
+
+    int getLine() const { return lineIndex; }
+
+    int getChar() const { return charIndex; }
+
+    void move(int line, int ch) {
+        lineIndex = line;
+        charIndex = ch;
+    }
+
+    void display() const {
+        std::cout << "Cursor is at line " << lineIndex + 1 << ", position " << charIndex + 1 << "." << std::endl;
+    }
+};
+
+class PathValidator {
+public:
+    static const size_t MAX_PATH_LENGTH = 260;
+
+    bool isValidInputPath(const char* path) {
+        std::ifstream infile(path);
+        return infile.good();
+    }
+
+    bool isValidOutputPath(const char* path) {
+        std::filesystem::path fsPath(path);
+
+        if (fsPath.has_parent_path()) {
+            if (!std::filesystem::exists(fsPath.parent_path())) {
+                return false;
+            }
+        }
+
+        // check if the file can be created or opened
+        std::ofstream outfile(path, std::ios::app);
+        bool canCreate = outfile.good();
+        outfile.close();
+        return canCreate;
+    }
+};
+
+class CaesarCipher {
+public:
+    CaesarCipher(const char* dllPath) {
+        handle = LoadLibrary(TEXT(dllPath));
+        if (!handle || handle == INVALID_HANDLE_VALUE) {
+            throw std::runtime_error("Library was not found");
+        }
+
+        encryption = (encryption_ptr) GetProcAddress(handle, TEXT("encrypt"));
+        if (!encryption) {
+            FreeLibrary(handle);
+            throw std::runtime_error("Function 'encrypt' was not found");
+        }
+
+        decryption = (decryption_ptr) GetProcAddress(handle, TEXT("decrypt"));
+        if (!decryption) {
+            FreeLibrary(handle);
+            throw std::runtime_error ("Function 'decrypt' was not found");
+        }
+    }
+
+    ~CaesarCipher() {
+        if (handle) {
+            FreeLibrary(handle);
+        }
+    }
+
+    void processFile(const char* inputFilePath, const char* outputFilePath, int shift, bool isEncryption) {
+        processFileInternal(inputFilePath, outputFilePath, shift, isEncryption ? encryption : decryption);
+    }
+
+private:
+    HINSTANCE handle;
+    typedef char* (*encryption_ptr)(const char*, int);
+    typedef char* (*decryption_ptr)(const char*, int);
+    encryption_ptr encryption;
+    decryption_ptr decryption;
+
+    static const size_t CHUNK_SIZE = 128;
+
+    void processFileInternal(const char* inputFilePath, const char* outputFilePath, int shift, char* (*process)(const char*, int)) {
+        std::ifstream inputFile(inputFilePath, std::ios::binary);
+        if (!inputFile.is_open()) {
+            std::cout << "Failed to open input file. Please, make sure path exists." << std::endl;
+            return;
+        }
+
+        std::ofstream outputFile(outputFilePath, std::ios::binary);
+        if (!outputFile.is_open()){
+            std::cout << "Failed to open output file. Please, make sure path exists." << std::endl;
+            inputFile.close();
+            return;
+        }
+
+        char buffer[CHUNK_SIZE + 1];
+        while (inputFile.read(buffer, CHUNK_SIZE) || inputFile.gcount() > 0) {
+            size_t bytesRead = inputFile.gcount();
+            buffer[bytesRead] = '\0';
+            char* processedContent = process(buffer, shift);
+            if (processedContent) {
+                processedContent[bytesRead] = '\0';
+                outputFile.write(processedContent, bytesRead);
+                delete[] processedContent;
+            } else {
+                std::cout << "Processing failed for chunk." << std::endl;
+                break;
+            }
+        }
+        inputFile.close();
+        outputFile.close();
     }
 };
 
 class TextManager {
 public:
-    TextManager() : head(nullptr), currentLine(nullptr), clipboard(nullptr), cursor(0, 0) {}
+    static const int MAX_FILENAME_LENGTH = 21;
+
+    TextManager() : currentLine(nullptr), clipboard(nullptr), cursor(0, 0) {}
 
     ~TextManager() {
-        freeMemory();
         freeClipboard();
     }
 
     void appendText() { // always appends to the end regardless of cursor position
         saveState();
         if (!currentLine) {
-            currentLine = new LineNode();
-            if (!head)
-                head = currentLine;
+            text.appendLine("");
+            currentLine = text.getHead();
         }
 
         std::cout << "Please, enter some text you would like to append: " << std::endl;
@@ -64,13 +263,15 @@ public:
             }
 
             int inputLen = strlen(input);
-            if (!ensureCapacity(currentLine, inputLen)) return;
+            if (!ensureCapacity(currentLine, inputLen)) {
+                return;
+            }
 
             strcat(currentLine->text, input);
 
             if (inputLen < BUFFER_SIZE - 1) {
                 std::cout << "Text was appended successfully." << std::endl;
-                moveCursor(cursor.first, strlen(currentLine->text));
+                moveCursor(cursor.getLine(), strlen(currentLine->text));
                 break;
             }
         }
@@ -81,19 +282,19 @@ public:
 
         LineNode *newLine = new LineNode();
         if (!currentLine) {
-            currentLine = newLine;
-            head = currentLine;
+            text.appendLine("");
+            currentLine = text.getHead();
         } else {
             newLine->next = currentLine->next;
             currentLine->next = newLine;
             currentLine = newLine;
         }
         std::cout << "New line is started." << std::endl;
-        moveCursor(cursor.first + 1, 0);
+        moveCursor(cursor.getLine() + 1, 0);
     }
 
     void saveToFile() {
-        LineNode *curLine = head;
+        LineNode *curLine = text.getHead();
         if (!curLine) {
             std::cout << "The text is empty yet. Please, enter something first." << std::endl;
             return;
@@ -104,7 +305,7 @@ public:
 
         std::ofstream outFile(filename);
         if (!outFile) {
-            std::cerr << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
+            std::cout << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
             return;
         }
 
@@ -122,28 +323,31 @@ public:
 
         FILE *inFile = fopen(filename, "r");
         if (!inFile) {
-            std::cerr << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
+            std::cout << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
             return;
         }
 
-        freeMemory();
+        text.clear();
 
         char buffer[BUFFER_SIZE];
         currentLine = nullptr;
         while (fgets(buffer, BUFFER_SIZE, inFile)) {
             buffer[strcspn(buffer, "\n")] = '\0';
 
-            LineNode *newLine = new LineNode();
+            LineNode *newLine = new LineNode(strlen(buffer) + 1);
             if (!ensureCapacity(newLine, strlen(buffer))) {
+                delete newLine;
                 fclose(inFile);
                 return;
             }
             strcpy(newLine->text, buffer);
+            text.appendLine(newLine->text);
 
-            if (!head) {
-                head = newLine;
-            } else currentLine->next = newLine;
-            currentLine = newLine;
+            if (!currentLine) {
+                currentLine = text.getHead();
+            } else {
+                currentLine = currentLine->next;
+            }
         }
         moveCursor(0, 0);
         fclose(inFile);
@@ -151,21 +355,23 @@ public:
     }
 
     void printText() const {
-        if (!head) {
+        if (!text.getHead()) {
             std::cout << "The text is empty yet. Please, enter something first." << std::endl;
             return;
         }
 
-        LineNode *curLine = head;
+        LineNode *curLine = text.getHead();
         int lineIndex = 0;
         std::cout << "Your current text is:" << std::endl;
         while (curLine) {
-            if (lineIndex == cursor.first) {
-                for (int i = 0; i < cursor.second; ++i)
+            if (lineIndex == cursor.getLine()) {
+                for (int i = 0; i < cursor.getChar(); ++i)
                     std::cout << curLine->text[i];
                 std::cout << "|"; // set the cursor before char
-                std::cout << (curLine->text + cursor.second) << std::endl;
-            } else std::cout << curLine->text << std::endl;
+                std::cout << (curLine->text + cursor.getChar()) << std::endl;
+            } else {
+                std::cout << curLine->text << std::endl;
+            }
             curLine = curLine->next;
             ++lineIndex;
         }
@@ -183,7 +389,7 @@ public:
         getUserInputString("Enter the substring to insert (up to 30 symbols):", substring, 31);
 
         int substringLen = strlen(substring);
-        int charIndex = cursor.second;
+        int charIndex = cursor.getChar();
         int curTextLen = strlen(currentLine->text);
 
 
@@ -192,18 +398,20 @@ public:
             return;
         }
 
-        if (!ensureCapacity(currentLine, substringLen)) return;
+        if (!ensureCapacity(currentLine, substringLen)) {
+            return;
+        }
 
         memmove(currentLine->text + charIndex + substringLen, currentLine->text + charIndex,
                 curTextLen - charIndex + 1);
         memcpy(currentLine->text + charIndex, substring, substringLen);
 
         std::cout << "Substring \"" << substring << "\" was inserted successfully at cursor position." << std::endl;
-        moveCursor(cursor.first, charIndex + substringLen);
+        moveCursor(cursor.getLine(), charIndex + substringLen);
     }
 
     void searchSubstring() const {
-        if (!head) {
+        if (!text.getHead()) {
             std::cout << "The text is empty. Please, enter something first." << std::endl;
             return;
         }
@@ -211,7 +419,7 @@ public:
         char substring[31];
         getUserInputString("Enter the substring to search for (up to 30 symbols):", substring, 31);
 
-        LineNode *curLine = head;
+        LineNode *curLine = text.getHead();
         int lineNumber = 1;
         bool found = false;
         while (curLine) {
@@ -226,8 +434,9 @@ public:
             curLine = curLine->next;
             ++lineNumber;
         }
-        if (!found)
+        if (!found) {
             std::cout << "Substring \"" << substring << "\" not found." << std::endl;
+        }
     }
 
     void deleteSubstring() {
@@ -239,7 +448,7 @@ public:
         }
 
         int numChars = getUserInputInt("Enter the number of symbols to delete: ");
-        int charIndex = cursor.second;
+        int charIndex = cursor.getChar();
 
         int curTextLen = strlen(currentLine->text);
         if (charIndex + numChars > curTextLen) {
@@ -249,10 +458,11 @@ public:
             return;
         }
 
-        memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars, curTextLen - numChars + 1); // null-terminator
+        memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars,
+                curTextLen - numChars + 1); // null-terminator
 
         std::cout << "Deleted " << numChars << " characters from cursor position." << std::endl;
-        moveCursor(cursor.first, charIndex);
+        moveCursor(cursor.getLine(), charIndex);
     }
 
     void replaceSubstring() {
@@ -267,21 +477,24 @@ public:
         getUserInputString("Enter the substring to insert (up to 30 symbols):", substring, 31);
 
         int substringLen = strlen(substring);
-        int charIndex = cursor.second;
+        int charIndex = cursor.getChar();
         int curTextLen = strlen(currentLine->text);
 
         if ((curTextLen - charIndex < substringLen) &&
-            !ensureCapacity(currentLine, substringLen - (curTextLen - charIndex))) return;
+            !ensureCapacity(currentLine, substringLen - (curTextLen - charIndex))) {
+            return;
+        }
 
         int newLength = charIndex + substringLen;
-        if (newLength >= curTextLen)
+        if (newLength >= curTextLen) {
             currentLine->text[newLength] = '\0';
+        }
 
         memcpy(currentLine->text + charIndex, substring, substringLen);
 
         std::cout << "Substring \"" << substring << "\" was inserted with replacement successfully at cursor position."
                   << std::endl;
-        moveCursor(cursor.first, charIndex + substringLen);
+        moveCursor(cursor.getLine(), charIndex + substringLen);
     }
 
     void copyText() {
@@ -291,7 +504,7 @@ public:
         }
 
         int numChars = getUserInputInt("Enter the number of symbols to copy: ");
-        int charIndex = cursor.second;
+        int charIndex = cursor.getChar();
         int curTextLen = strlen(currentLine->text);
 
         if (charIndex + numChars > curTextLen) {
@@ -307,7 +520,7 @@ public:
         clipboard[numChars] = '\0';
 
         std::cout << "Copied text: " << clipboard << std::endl;
-        moveCursor(cursor.first, charIndex + numChars);
+        moveCursor(cursor.getLine(), charIndex + numChars);
     }
 
     void pasteText() {
@@ -324,10 +537,12 @@ public:
         }
 
         int clipboardLen = strlen(clipboard);
-        int charIndex = cursor.second;
+        int charIndex = cursor.getChar();
         int curTextLen = strlen(currentLine->text);
 
-        if (!ensureCapacity(currentLine, clipboardLen)) return;
+        if (!ensureCapacity(currentLine, clipboardLen)) {
+            return;
+        }
 
         memmove(currentLine->text + charIndex + clipboardLen, currentLine->text + charIndex,
                 curTextLen - charIndex + 1);
@@ -335,7 +550,7 @@ public:
         currentLine->text[curTextLen + clipboardLen] = '\0';
 
         std::cout << "Pasted text: " << clipboard << std::endl;
-        moveCursor(cursor.first, charIndex + clipboardLen);
+        moveCursor(cursor.getLine(), charIndex + clipboardLen);
     }
 
     void cutText() {
@@ -347,7 +562,7 @@ public:
         }
 
         int numChars = getUserInputInt("Enter the number of symbols to cut: ");
-        int charIndex = cursor.second;
+        int charIndex = cursor.getChar();
         int curTextLen = strlen(currentLine->text);
 
         if (charIndex + numChars > curTextLen) {
@@ -363,8 +578,16 @@ public:
         memmove(currentLine->text + charIndex, currentLine->text + charIndex + numChars,
                 curTextLen - numChars - charIndex + 1);
 
-        std::cout << "Cut text: " <<  clipboard << std::endl;
-        moveCursor(cursor.first, charIndex);
+        std::cout << "Cut text: " << clipboard << std::endl;
+        moveCursor(cursor.getLine(), charIndex);
+    }
+
+    void encryptFile() {
+        processFile(true);
+    }
+
+    void decryptFile() {
+        processFile(false);
     }
 
     void undo() {
@@ -373,7 +596,7 @@ public:
             return;
         }
         saveCurrentStateForRedo();
-        auto state = undoStack.top();
+        std::pair<LineNode *, Cursor> state = undoStack.top();
         undoStack.pop();
         restoreState(state);
         std::cout << "Undo operation completed successfully." << std::endl;
@@ -385,29 +608,10 @@ public:
             return;
         }
         saveCurrentStateForUndo();
-        auto state = redoStack.top();
+        std::pair<LineNode *, Cursor> state = redoStack.top();
         redoStack.pop();
         restoreState(state);
         std::cout << "Redo operation completed successfully." << std::endl;
-    }
-
-    void printMenu() const {
-        std::cout << "Possible commands:\n"
-                  << "1. Append text to current line.\n"
-                  << "2. Add a new line.\n"
-                  << "3. Save the text to a file.\n"
-                  << "4. Load the text from a file.\n"
-                  << "5. Print the text.\n"
-                  << "6. Insert a substring into the text.\n"
-                  << "7. Search for a substring in the text.\n"
-                  << "8. Exit.\n"
-                  << "9. Insert text with replacement at a specified position.\n"
-                  << "10. Copy text.\n"
-                  << "11. Paste text.\n"
-                  << "12. Cut text.\n"
-                  << "13. Undo last action.\n"
-                  << "14. Redo last undone action.\n"
-                  << "15. Exit.\n";
     }
 
     void setCursorPosition() {
@@ -419,7 +623,7 @@ public:
             return;
         }
 
-        LineNode *curLine = head;
+        LineNode *curLine = text.getHead();
         int currentLineIndex = 0;
 
         while (curLine && currentLineIndex < lineIndex) {
@@ -440,12 +644,236 @@ public:
         moveCursor(lineIndex, charIndex);
     }
 
-    void publicClearInputBuffer(const std::string &errorMessage) {
+    void printMenu() const {
+        std::cout << "Possible commands:\n"
+                  << "1. Append text to current line.\n"
+                  << "2. Add a new line.\n"
+                  << "3. Save the text to a file.\n"
+                  << "4. Load the text from a file.\n"
+                  << "5. Print the text.\n"
+                  << "6. Insert a substring into the text.\n"
+                  << "7. Search for a substring in the text.\n"
+                  << "8. Delete substring.\n"
+                  << "9. Insert text with replacement at a specified position.\n"
+                  << "10. Copy text.\n"
+                  << "11. Paste text.\n"
+                  << "12. Cut text.\n"
+                  << "13. Encrypt file.\n"
+                  << "14. Decrypt file.\n"
+                  << "15. Undo last action.\n"
+                  << "16. Redo last undone action.\n";
+    }
+
+    void publicClearInputBuffer(const char *errorMessage) {
         clearInputBuffer(errorMessage);
     }
 
     bool publicIsValidCommand(char *line, int &command) {
         return isValidCommand(line, command);
+    }
+
+    void publicProcessCommand(int command) {
+        processCommand(command);
+    }
+
+private:
+    Text text;
+    LineNode *currentLine;
+    std::stack<std::pair<LineNode *, Cursor>> undoStack;
+    std::stack<std::pair<LineNode *, Cursor>> redoStack;
+    Cursor cursor;
+    char *clipboard;
+
+    void saveState() {
+        undoStack.push({cloneList(text.getHead()), cursor});
+        while (!redoStack.empty()) {
+            freeList(redoStack.top().first);
+            redoStack.pop();
+        }
+    }
+
+    void saveCurrentStateForUndo() {
+        LineNode *state = cloneList(text.getHead());
+        undoStack.push({state, cursor});
+    }
+
+    void saveCurrentStateForRedo() {
+        LineNode *state = cloneList(text.getHead());
+        redoStack.push({state, cursor});
+    }
+
+    LineNode *cloneList(LineNode *head) {
+        if (!head) {
+            return nullptr;
+        }
+        return new LineNode(*head);
+    }
+
+    void restoreState(const std::pair<LineNode *, Cursor> &state) {
+        freeList(text.getHead());
+        text.setHead(cloneList(state.first));
+        cursor = state.second;
+
+        currentLine = text.getHead();
+        int lineIndex = 0;
+        while (currentLine && lineIndex < cursor.getLine()) {
+            currentLine = currentLine->next;
+            lineIndex++;
+        } // restore the state of the text editor to a previous state that's stored in a stack
+    }
+
+    void freeList(LineNode *head) {
+        LineNode *current = head;
+        while (current) {
+            LineNode *next = current->next;
+            delete current;
+            current = next;
+        }
+    }
+
+    void freeClipboard() {
+        delete[] clipboard;
+        clipboard = nullptr;
+    }
+
+    void clearInputBuffer(const char *errorMessage) const {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << errorMessage << std::endl;
+    }
+
+    bool isInteger(const char *line) {
+        int len = strlen(line);
+        for (int i = 0; i < len; ++i) {
+            if (!isdigit(line[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool isValidCommand(char *line, int &command) {
+        if (isInteger(line)) {
+            command = atoi(line);
+            if (command >= 1 && command <= 16) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool ensureCapacity(LineNode *curLine, int additionalLength) {
+        if (!curLine || !curLine->text) {
+            return false;
+        }
+
+        int currentLength = strlen(curLine->text);
+        int newLength = currentLength + additionalLength + 1;
+
+        if (curLine->capacity < newLength) {
+            char *newBuffer = new(std::nothrow) char[newLength];
+            if (!newBuffer) {
+                std::cout << "Failed to allocate memory for line text." << std::endl;
+                return false;
+            }
+
+            strcpy(newBuffer, curLine->text);
+            delete[] curLine->text;
+            curLine->text = newBuffer;
+            curLine->capacity = newLength;
+        }
+        return true;
+    }
+
+    int getUserInputInt(const char *prompt) {
+        char input[BUFFER_SIZE];
+        int value;
+
+        while (true) {
+            std::cout << prompt << std::endl;
+            std::cin.getline(input, BUFFER_SIZE);
+
+            if (std::cin.fail()) {
+                clearInputBuffer("Input exceeds buffer size. Please enter a shorter input.");
+                continue;
+            }
+
+            if (isInteger(input) && input[0] != '\0') {
+                value = std::atoi(input);
+                break;
+            } else {
+                std::cout << "Invalid input. Please enter an integer value." << std::endl;
+            }
+        }
+        return value;
+    }
+
+    void getUserInputString(const char *prompt, char *output, int maxLength) const {
+        while (true) {
+            std::cout << prompt << std::endl;
+            std::cin.getline(output, maxLength);
+
+            if (std::cin.fail()) {
+                clearInputBuffer("Input exceeds buffer size. Please enter a shorter command.");
+                continue;
+            }
+
+            if (output[0] == '\0') {
+                std::cout << "Invalid input. Please enter a non-empty string." << std::endl;
+            } else {
+                break;
+            }
+        }
+    }
+
+    void getUserPath(const char *prompt, char* path, PathValidator &validator, bool checkExistence, const char* otherPath = nullptr) {
+        while (true) {
+            getUserInputString(prompt, path, PathValidator::MAX_PATH_LENGTH);
+
+            if (otherPath && pathsAreEqual(path, otherPath)) {
+                std::cout << "Input and output file paths must be different. Please enter a different path." << std::endl;
+                continue;
+            }
+
+            if (checkExistence && validator.isValidInputPath(path) || (!checkExistence && validator.isValidOutputPath(path))) {
+                break;
+            } else {
+                std::cout << "Invalid path. Please enter a valid path." << std::endl;
+            }
+        }
+    }
+
+    bool pathsAreEqual(const char* path1, const char* path2) {
+        std::filesystem::path absPath1 = std::filesystem::absolute(path1);
+        std::filesystem::path absPath2 = std::filesystem::absolute(path2);
+        return absPath1 == absPath2;
+    }
+
+    void processFile(bool isEncryption) {
+        char inputFilePath[PathValidator::MAX_PATH_LENGTH];
+        char outputFilePath[PathValidator::MAX_PATH_LENGTH];
+        PathValidator validator;
+
+        getUserPath("Enter input file path: ", inputFilePath, validator, true);
+        getUserPath("Enter output file path: ", outputFilePath, validator, false, inputFilePath);
+        int shift = getUserInputInt("Enter shift value: ");
+
+        CaesarCipher cipher("../caesar-encryption-algorithm-ivelmakina/dynamic_lib_src/caesar.dll");
+        cipher.processFile(inputFilePath, outputFilePath, shift, isEncryption);
+        std::cout << "Operation on file completed successfully." << std::endl;
+    }
+
+    void moveCursor(int lineIndex, int charIndex) {
+        cursor.move(lineIndex, charIndex);
+
+        currentLine = text.getHead();
+        int currentLineIndex = 0;
+        while (currentLine && currentLineIndex < lineIndex) {
+            currentLine = currentLine->next;
+            currentLineIndex++;
+        }
+
+        cursor.display();
     }
 
     void processCommand(int command) {
@@ -487,191 +915,32 @@ public:
                 cutText();
                 break;
             case 13:
-                undo();
+                encryptFile();
                 break;
             case 14:
-                redo();
+                decryptFile();
                 break;
             case 15:
-                freeMemory();
-                std::cout << "Okay, bye!" << std::endl;
+                undo();
+                break;
+            case 16:
+                redo();
                 break;
             default:
-                std::cout << "Unexpected command received. Please enter a number from 1 to 8." << std::endl;
+                std::cout << "Unexpected command received. Please enter a number from 1 to 14." << std::endl;
                 break;
         }
-    }
-
-private:
-    LineNode *head;
-    LineNode *currentLine;
-    std::stack<std::pair<LineNode *, std::pair<int, int>>> undoStack;
-    std::stack<std::pair<LineNode *, std::pair<int, int>>> redoStack;
-    std::pair<int, int> cursor;
-    char *clipboard;
-
-    void saveState() {
-        undoStack.push({cloneList(head), cursor});
-        while (!redoStack.empty()) {
-            freeList(redoStack.top().first);
-            redoStack.pop();
-        }
-    }
-
-    void saveCurrentStateForUndo() {
-        LineNode *state = cloneList(head);
-        undoStack.push({state, cursor});
-    }
-
-    void saveCurrentStateForRedo() {
-        LineNode *state = cloneList(head);
-        redoStack.push({state, cursor});
-    }
-
-    LineNode *cloneList(LineNode *head) {
-        if (!head) return nullptr;
-        return new LineNode(*head);
-    }
-
-    void restoreState(const std::pair<LineNode *, std::pair<int, int>> &state) {
-        freeList(head);
-        head = cloneList(state.first);
-        cursor = state.second;
-
-        currentLine = head;
-        int lineIndex = 0;
-        while (currentLine && lineIndex < cursor.first) {
-            currentLine = currentLine->next;
-            lineIndex++;
-        } //restore the state of the text editor to a previous state that's stored in a stack
-    }
-
-    void freeList(LineNode *head) {
-        LineNode *current = head;
-        while (current) {
-            LineNode *next = current->next;
-            delete current;
-            current = next;
-        }
-    }
-
-    void freeMemory() {
-        freeList(head);
-        head = nullptr;
-        currentLine = nullptr;
-    }
-
-    void freeClipboard() {
-        delete[] clipboard;
-        clipboard = nullptr;
-    }
-
-    void clearInputBuffer(const std:: string& errorMessage) const {
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << errorMessage << std::endl;
-    }
-
-    bool isInteger(const char *line) {
-        int len = strlen(line);
-        for (int i = 0; i < len; ++i) {
-            if (!isdigit(line[i])) return false;
-        }
-        return true;
-    }
-
-    bool isValidCommand(char *line, int &command) {
-        if (isInteger(line)) {
-            command = atoi(line);
-            if (command >= 1 && command <= 15) return true;
-        }
-        return false;
-    }
-
-    bool ensureCapacity(LineNode *curLine, int additionalLength) {
-        if (!curLine || !curLine->text) return false;
-
-        int currentLength = strlen(curLine->text);
-        int newLength = currentLength + additionalLength + 1;
-
-        if (curLine->capacity < newLength) {
-            char *newBuffer = new(std::nothrow) char[newLength];
-            if (!newBuffer) {
-                std::cerr << "Failed to allocate memory for line text." << std::endl;
-                return false;
-            }
-
-            strcpy(newBuffer, curLine->text);
-            delete[] curLine->text;
-            curLine->text = newBuffer;
-            curLine->capacity = newLength;
-        }
-        return true;
-    }
-
-    int getUserInputInt(const char *prompt) {
-        char input[BUFFER_SIZE];
-        int value;
-
-        while (true) {
-            std::cout << prompt << std::endl;
-            std::cin.getline(input, BUFFER_SIZE);
-
-            if (std::cin.fail()) {
-                clearInputBuffer("Input exceeds buffer size. Please enter a shorter input.");
-                continue;
-            }
-
-            if (isInteger(input) && input[0] != '\0') {
-                value = std::atoi(input);
-                break;
-            } else std::cout << "Invalid input. Please enter an integer value." << std::endl;
-        }
-        return value;
-    }
-
-    void getUserInputString(const char *prompt, char *output, int maxLength) const {
-        while (true) {
-            std::cout << prompt << std::endl;
-            std::cin.getline(output, maxLength);
-
-            if (std::cin.fail()) {
-                clearInputBuffer("Input exceeds buffer size. Please enter a shorter command.");
-                continue;
-            }
-
-            if (output[0] == '\0')
-                std::cout << "Invalid input. Please enter a non-empty string." << std::endl;
-            else break;
-        }
-    }
-
-    void moveCursor(int lineIndex, int charIndex) {
-        cursor.first = lineIndex;
-        cursor.second = charIndex;
-
-        currentLine = head;
-        int currentLineIndex = 0;
-        while (currentLine && currentLineIndex < lineIndex) {
-            currentLine = currentLine->next;
-            currentLineIndex++;
-        }
-
-        displayCursor();
-    }
-
-    void displayCursor() const {
-        std::cout << "Cursor is at line " << cursor.first + 1 << ", position " << cursor.second + 1 << "." << std::endl;
     }
 };
 
 int main() {
     TextManager textManager;
 
-    std::cout << "Welcome! Enter 'm' to see available commands or 'c' to set cursor position." << std::endl;
+    std::cout << "Welcome! Enter 'm' to see available commands, 'c' to set cursor position and 'e' to exit."
+              << std::endl;
     char commandLine[BUFFER_SIZE];
     int command;
-    do {
+    while (true) {
         std::cout << "\nPlease, choose your command: " << std::endl;
         std::cin.getline(commandLine, BUFFER_SIZE);
 
@@ -684,12 +953,15 @@ int main() {
             textManager.printMenu();
         } else if (strcmp(commandLine, "c") == 0) {
             textManager.setCursorPosition();
+        } else if (strcmp(commandLine, "e") == 0) {
+            std::cout << "Okay, bye!" << std::endl;
+            break;
         } else if (textManager.publicIsValidCommand(commandLine, command)) {
-            textManager.processCommand(command);
+            textManager.publicProcessCommand(command);
         } else {
-            std::cout << "Invalid command! Please, enter a number from 1 to 15." << std::endl;
-            continue;
+            std::cout << "Invalid command! Please, enter a number from 1 to 16." << std::endl;
         }
-    } while (command != 15);
+    }
+
     return 0;
 }
