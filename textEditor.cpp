@@ -153,7 +153,7 @@ public:
             }
         }
 
-        // Check if the file can be created or opened
+        // check if the file can be created or opened
         std::ofstream outfile(path, std::ios::app);
         bool canCreate = outfile.good();
         outfile.close();
@@ -584,6 +584,14 @@ public:
         moveCursor(cursor.getLine(), charIndex);
     }
 
+    void encryptFile() {
+        processFile(true);
+    }
+
+    void decryptFile() {
+        processFile(false);
+    }
+
     void undo() {
         if (undoStack.empty()) {
             std::cout << "No actions to undo." << std::endl;
@@ -595,7 +603,7 @@ public:
         restoreState(state);
         std::cout << "Undo operation completed successfully." << std::endl;
     }
-
+    
     void redo() {
         if (redoStack.empty()) {
             std::cout << "No actions to redo." << std::endl;
@@ -832,6 +840,20 @@ private:
         }
     }
 
+    void processFile(bool isEncryption) {
+        char inputFilePath[PathValidator::MAX_PATH_LENGTH];
+        char outputFilePath[PathValidator::MAX_PATH_LENGTH];
+        PathValidator validator;
+
+        getUserPath("Enter input file path: ", inputFilePath, validator, true);
+        getUserPath("Enter output file path: ", outputFilePath, validator, false);
+        int shift = getUserInputInt("Enter shift value: ");
+
+        CaesarCipher cipher("../caesar-encryption-algorithm-ivelmakina/dynamic_lib_src/caesar.dll");
+        cipher.processFile(inputFilePath, outputFilePath, shift, isEncryption);
+        std::cout << "Operation on file completed successfully." << std::endl;
+    }
+
     void moveCursor(int lineIndex, int charIndex) {
         cursor.move(lineIndex, charIndex);
 
@@ -884,10 +906,10 @@ private:
                 cutText();
                 break;
             case 13:
-//                encryptFile();
+                encryptFile();
                 break;
             case 14:
-//                decryptFile();
+                decryptFile();
                 break;
             case 15:
                 undo();
