@@ -820,6 +820,18 @@ private:
         }
     }
 
+    void getUserPath(const char *prompt, char* path, PathValidator &validator, bool checkExistence) {
+        while (true) {
+            getUserInputString(prompt, path, PathValidator::MAX_PATH_LENGTH);
+
+            if (checkExistence && validator.isValidInputPath(path) || (!checkExistence && validator.isValidOutputPath(path))) {
+                break;
+            } else {
+                std::cout << "Invalid path. Please enter a valid path." << std::endl;
+            }
+        }
+    }
+
     void moveCursor(int lineIndex, int charIndex) {
         cursor.move(lineIndex, charIndex);
 
