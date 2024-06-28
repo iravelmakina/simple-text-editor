@@ -218,13 +218,10 @@ private:
         char buffer[CHUNK_SIZE + 1];
         while (inputFile.read(buffer, CHUNK_SIZE) || inputFile.gcount() > 0) {
             size_t bytesRead = inputFile.gcount();
-            std::cout << "Processing chunk of size: " << bytesRead << std::endl;
             buffer[bytesRead] = '\0';
-            std::cout << "Buffer before processing: " << std::string(buffer, bytesRead) << std::endl;
             char* processedContent = process(buffer, shift);
             if (processedContent) {
                 processedContent[bytesRead] = '\0';
-                std::cout << "Processed buffer: " << std::string(processedContent, bytesRead) << std::endl;
                 outputFile.write(processedContent, bytesRead);
                 delete[] processedContent;
             } else {
