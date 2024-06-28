@@ -830,7 +830,7 @@ private:
         while (true) {
             getUserInputString(prompt, path, PathValidator::MAX_PATH_LENGTH);
 
-            if (otherPath && std::strcmp(path, otherPath) == 0) {
+            if (otherPath && pathsAreEqual(path, otherPath)) {
                 std::cout << "Input and output file paths must be different. Please enter a different path." << std::endl;
                 continue;
             }
@@ -841,6 +841,12 @@ private:
                 std::cout << "Invalid path. Please enter a valid path." << std::endl;
             }
         }
+    }
+
+    bool pathsAreEqual(const char* path1, const char* path2) {
+        std::filesystem::path absPath1 = std::filesystem::absolute(path1);
+        std::filesystem::path absPath2 = std::filesystem::absolute(path2);
+        return absPath1 == absPath2;
     }
 
     void processFile(bool isEncryption) {
