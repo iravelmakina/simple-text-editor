@@ -1,10 +1,10 @@
 #include <iostream>
-#include <fstream>
 #include <cstring>
-#include <limits>
+#include <fstream>
 #include <stack>
 #include <filesystem>
 #include <windows.h>
+
 
 const int BUFFER_SIZE = 100;
 
@@ -139,12 +139,12 @@ class PathValidator {
 public:
     static const size_t MAX_PATH_LENGTH = 260;
 
-    bool isValidInputPath(const std::string& path) {
+    bool isValidInputPath(const char* path) {
         std::ifstream infile(path);
         return infile.good();
     }
 
-    bool isValidOutputPath(const std::string& path) {
+    bool isValidOutputPath(const char* path) {
         std::filesystem::path fsPath(path);
 
         if (fsPath.has_parent_path()) {
@@ -199,6 +199,8 @@ private:
     encryption_ptr encryption;
     decryption_ptr decryption;
 
+    static const size_t CHUNK_SIZE = 128;
+
     void processFileInternal(const char* inputFilePath, const char* outputFilePath, int shift, char* (*process)(const char*, int)) {
         std::ifstream inputFile(inputFilePath, std::ios::binary);
         if (!inputFile.is_open()) {
@@ -206,33 +208,32 @@ private:
             return;
         }
 
-        inputFile.seekg(0, std::ios::end);
-        size_t fileSize = inputFile.tellg();
-        inputFile.seekg(0, std::ios::beg);
-
-        char* content = new(std::nothrow) char[fileSize + 1];
-        if (!content) {
-            std::cout << "Memory allocation failed for content." << std::endl;
+        std::ofstream outputFile(outputFilePath, std::ios::binary);
+        if (!outputFile.is_open()){
+            std::cout << "Failed to open output file. Please, make sure path exists." << std::endl;
             inputFile.close();
             return;
         }
-        inputFile.read(content, fileSize);
-        inputFile.close();
-        content[fileSize] = '\0';
 
-        char* processedContent = process(content, shift);
-        delete[] content;
-
-        std::ofstream outputFile(outputFilePath, std::ios::binary);
-        if (!outputFile.is_open()){
-            delete[] processedContent;
-            std::cout << "Failed to open output file. Please, make sure path exists." << std::endl;
-            return;
+        char buffer[CHUNK_SIZE + 1];
+        while (inputFile.read(buffer, CHUNK_SIZE) || inputFile.gcount() > 0) {
+            size_t bytesRead = inputFile.gcount();
+            std::cout << "Processing chunk of size: " << bytesRead << std::endl;
+            buffer[bytesRead] = '\0';
+            std::cout << "Buffer before processing: " << std::string(buffer, bytesRead) << std::endl;
+            char* processedContent = process(buffer, shift);
+            if (processedContent) {
+                processedContent[bytesRead] = '\0';
+                std::cout << "Processed buffer: " << std::string(processedContent, bytesRead) << std::endl;
+                outputFile.write(processedContent, bytesRead);
+                delete[] processedContent;
+            } else {
+                std::cout << "Processing failed for chunk." << std::endl;
+                break;
+            }
         }
-
-        outputFile.write(processedContent, fileSize);
+        inputFile.close();
         outputFile.close();
-        delete[] processedContent;
     }
 };
 
@@ -603,7 +604,7 @@ public:
         restoreState(state);
         std::cout << "Undo operation completed successfully." << std::endl;
     }
-    
+
     void redo() {
         if (redoStack.empty()) {
             std::cout << "No actions to redo." << std::endl;
@@ -828,9 +829,14 @@ private:
         }
     }
 
-    void getUserPath(const char *prompt, char* path, PathValidator &validator, bool checkExistence) {
+    void getUserPath(const char *prompt, char* path, PathValidator &validator, bool checkExistence, const char* otherPath = nullptr) {
         while (true) {
             getUserInputString(prompt, path, PathValidator::MAX_PATH_LENGTH);
+
+            if (otherPath && std::strcmp(path, otherPath) == 0) {
+                std::cout << "Input and output file paths must be different. Please enter a different path." << std::endl;
+                continue;
+            }
 
             if (checkExistence && validator.isValidInputPath(path) || (!checkExistence && validator.isValidOutputPath(path))) {
                 break;
@@ -846,7 +852,7 @@ private:
         PathValidator validator;
 
         getUserPath("Enter input file path: ", inputFilePath, validator, true);
-        getUserPath("Enter output file path: ", outputFilePath, validator, false);
+        getUserPath("Enter output file path: ", outputFilePath, validator, false, inputFilePath);
         int shift = getUserInputInt("Enter shift value: ");
 
         CaesarCipher cipher("../caesar-encryption-algorithm-ivelmakina/dynamic_lib_src/caesar.dll");
