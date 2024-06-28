@@ -3,10 +3,10 @@
 #include <cstring>
 #include <limits>
 #include <stack>
+#include <filesystem>
 #include <windows.h>
 
 const int BUFFER_SIZE = 100;
-const int MAX_FILENAME_LENGTH = 21;
 
 class LineNode {
 public:
@@ -19,18 +19,17 @@ public:
         if (text) {
             text[0] = '\0';
         } else {
-            std::cerr << "Memory allocation failed for text." << std::endl;
+            std::cout << "Memory allocation failed for text." << std::endl;
             return;
         }
     }
 
-    // copy constructor
     LineNode(const LineNode &other) : capacity(other.capacity), next(nullptr) {
         text = new(std::nothrow) char[capacity];
         if (text) {
             strcpy(text, other.text);
         } else {
-            std::cerr << "Memory allocation failed for text." << std::endl;
+            std::cout << "Memory allocation failed for text." << std::endl;
         }
 
         if (other.next) {
@@ -72,6 +71,11 @@ public:
 
     void appendLine(const char *line) {
         LineNode *newNode = new LineNode(strlen(line) + 1);
+        if (!newNode->text) {
+            std::cout << "Memory allocation failed for new line." << std::endl;
+            delete newNode;
+            return;
+        }
         strcpy(newNode->text, line);
         if (!head) {
             head = tail = newNode;
@@ -121,10 +125,6 @@ public:
 
     int getChar() const { return charIndex; }
 
-    void setLine(int line) { lineIndex = line; }
-
-    void setChar(int ch) { charIndex = ch; }
-
     void move(int line, int ch) {
         lineIndex = line;
         charIndex = ch;
@@ -132,6 +132,32 @@ public:
 
     void display() const {
         std::cout << "Cursor is at line " << lineIndex + 1 << ", position " << charIndex + 1 << "." << std::endl;
+    }
+};
+
+class PathValidator {
+public:
+    static const size_t MAX_PATH_LENGTH = 260;
+
+    bool isValidInputPath(const std::string& path) {
+        std::ifstream infile(path);
+        return infile.good();
+    }
+
+    bool isValidOutputPath(const std::string& path) {
+        std::filesystem::path fsPath(path);
+
+        if (fsPath.has_parent_path()) {
+            if (!std::filesystem::exists(fsPath.parent_path())) {
+                return false;
+            }
+        }
+
+        // Check if the file can be created or opened
+        std::ofstream outfile(path, std::ios::app);
+        bool canCreate = outfile.good();
+        outfile.close();
+        return canCreate;
     }
 };
 
@@ -162,20 +188,8 @@ public:
         }
     }
 
-    char* encrypt(const char* message, int shift) {
-        return encryption(message, shift);
-    }
-
-    char* decrypt(const char* message, int shift) {
-        return decryption(message, shift);
-    }
-
-    void encryptFile(const char* inputFilePath, const char* outputFilePath, int shift) {
-        processFile(inputFilePath, outputFilePath, shift, encryption);
-    }
-
-    void decryptFile(const char* inputFilePath, const char* outputFilePath, int shift) {
-        processFile(inputFilePath, outputFilePath, shift, decryption);
+    void processFile(const char* inputFilePath, const char* outputFilePath, int shift, bool isEncryption) {
+        processFileInternal(inputFilePath, outputFilePath, shift, isEncryption ? encryption : decryption);
     }
 
 private:
@@ -185,10 +199,10 @@ private:
     encryption_ptr encryption;
     decryption_ptr decryption;
 
-    void processFile(const char* inputFilePath, const char* outputFilePath, int shift, char* (*process)(const char*, int)) {
+    void processFileInternal(const char* inputFilePath, const char* outputFilePath, int shift, char* (*process)(const char*, int)) {
         std::ifstream inputFile(inputFilePath, std::ios::binary);
         if (!inputFile.is_open()) {
-            std::cerr << "Failed to open input file. Please, make sure path exists." << std::endl;
+            std::cout << "Failed to open input file. Please, make sure path exists." << std::endl;
             return;
         }
 
@@ -196,7 +210,12 @@ private:
         size_t fileSize = inputFile.tellg();
         inputFile.seekg(0, std::ios::beg);
 
-        char* content = new char[fileSize + 1];
+        char* content = new(std::nothrow) char[fileSize + 1];
+        if (!content) {
+            std::cout << "Memory allocation failed for content." << std::endl;
+            inputFile.close();
+            return;
+        }
         inputFile.read(content, fileSize);
         inputFile.close();
         content[fileSize] = '\0';
@@ -207,7 +226,7 @@ private:
         std::ofstream outputFile(outputFilePath, std::ios::binary);
         if (!outputFile.is_open()){
             delete[] processedContent;
-            std::cerr << "Failed to open output file. Please, make sure path exists." << std::endl;
+            std::cout << "Failed to open output file. Please, make sure path exists." << std::endl;
             return;
         }
 
@@ -219,6 +238,8 @@ private:
 
 class TextManager {
 public:
+    static const int MAX_FILENAME_LENGTH = 21;
+
     TextManager() : currentLine(nullptr), clipboard(nullptr), cursor(0, 0) {}
 
     ~TextManager() {
@@ -262,10 +283,6 @@ public:
         saveState();
 
         LineNode *newLine = new LineNode();
-//        if (!newLine->text) {
-//            delete newLine;
-//            return;
-//        }
         if (!currentLine) {
             text.appendLine("");
             currentLine = text.getHead();
@@ -290,7 +307,7 @@ public:
 
         std::ofstream outFile(filename);
         if (!outFile) {
-            std::cerr << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
+            std::cout << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
             return;
         }
 
@@ -308,7 +325,7 @@ public:
 
         FILE *inFile = fopen(filename, "r");
         if (!inFile) {
-            std::cerr << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
+            std::cout << "Failed to open file " << filename << ". Please, make sure it exists." << std::endl;
             return;
         }
 
@@ -320,10 +337,6 @@ public:
             buffer[strcspn(buffer, "\n")] = '\0';
 
             LineNode *newLine = new LineNode(strlen(buffer) + 1);
-//            if (!newLine->text) {
-//                delete newLine;
-//                return;
-//            }
             if (!ensureCapacity(newLine, strlen(buffer))) {
                 delete newLine;
                 fclose(inFile);
@@ -639,8 +652,10 @@ public:
                   << "10. Copy text.\n"
                   << "11. Paste text.\n"
                   << "12. Cut text.\n"
-                  << "13. Undo last action.\n"
-                  << "14. Redo last undone action.\n";
+                  << "13. Encrypt file.\n"
+                  << "14. Decrypt file.\n"
+                  << "15. Undo last action.\n"
+                  << "16. Redo last undone action.\n";
     }
 
     void publicClearInputBuffer(const char *errorMessage) {
@@ -698,7 +713,7 @@ private:
         while (currentLine && lineIndex < cursor.getLine()) {
             currentLine = currentLine->next;
             lineIndex++;
-        } //restore the state of the text editor to a previous state that's stored in a stack
+        } // restore the state of the text editor to a previous state that's stored in a stack
     }
 
     void freeList(LineNode *head) {
@@ -734,7 +749,7 @@ private:
     bool isValidCommand(char *line, int &command) {
         if (isInteger(line)) {
             command = atoi(line);
-            if (command >= 1 && command <= 14) {
+            if (command >= 1 && command <= 16) {
                 return true;
             }
         }
@@ -752,7 +767,7 @@ private:
         if (curLine->capacity < newLength) {
             char *newBuffer = new(std::nothrow) char[newLength];
             if (!newBuffer) {
-                std::cerr << "Failed to allocate memory for line text." << std::endl;
+                std::cout << "Failed to allocate memory for line text." << std::endl;
                 return false;
             }
 
@@ -857,9 +872,15 @@ private:
                 cutText();
                 break;
             case 13:
-                undo();
+//                encryptFile();
                 break;
             case 14:
+//                decryptFile();
+                break;
+            case 15:
+                undo();
+                break;
+            case 16:
                 redo();
                 break;
             default:
@@ -895,8 +916,9 @@ int main() {
         } else if (textManager.publicIsValidCommand(commandLine, command)) {
             textManager.publicProcessCommand(command);
         } else {
-            std::cout << "Invalid command! Please, enter a number from 1 to 14." << std::endl;
+            std::cout << "Invalid command! Please, enter a number from 1 to 16." << std::endl;
         }
     }
+
     return 0;
 }
