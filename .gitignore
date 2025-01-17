@@ -1,3 +1,9 @@
+# Ignore everything in .idea
+.idea/
+
+# macOS system files
+.DS_Store
+
 # Prerequisites
 *.d
 
