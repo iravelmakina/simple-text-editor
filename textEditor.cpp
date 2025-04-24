@@ -858,7 +858,7 @@ private:
         getUserPath("Enter output file path: ", outputFilePath, validator, false, inputFilePath);
         int shift = getUserInputInt("Enter shift value: ");
 
-        CaesarCipher cipher("../caesar-encryption-algorithm-ivelmakina/dynamic_lib_src/caesar.dll");
+        CaesarCipher cipher("../caesar-encryption-algorithm/dynamic_lib_src/caesar.dll");
         cipher.processFile(inputFilePath, outputFilePath, shift, isEncryption);
         std::cout << "Operation on file completed successfully." << std::endl;
     }
